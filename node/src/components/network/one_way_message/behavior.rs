@@ -19,35 +19,36 @@ use libp2p::{
 };
 use tracing::{trace, warn};
 
-use super::{Codec, IncomingMessage, Message, OutgoingMessage, ProtocolId};
+use super::{Codec, Incoming, Outgoing};
 use crate::{
     components::{
         chainspec_loader::Chainspec,
-        network::{Config, PayloadT},
+        network::{Config, Message, PayloadT, ProtocolId},
     },
     types::NodeId,
 };
+
+/// The inner portion of the `ProtocolId` for the one-way message behavior.  A standard prefix and
+/// suffix will be applied to create the full protocol name.
+const PROTOCOL_NAME_INNER: &str = "validator/one-way";
 
 /// Implementor of the libp2p `NetworkBehaviour` for one-way messages.
 ///
 /// This is a wrapper round a `RequestResponse` where the response type is defined to be the unit
 /// value.
-pub(in crate::components::network) struct Behavior<P: PayloadT> {
+pub(in crate::components::network) struct Behavior {
     libp2p_req_resp: RequestResponse<Codec>,
     our_id: NodeId,
-    _phantom: PhantomData<P>,
 }
 
-impl<P: PayloadT> Behavior<P> {
+impl Behavior {
     pub(in crate::components::network) fn new(
         config: &Config,
         chainspec: &Chainspec,
         our_id: NodeId,
     ) -> Self {
         let codec = Codec::from(config);
-        // TODO - use correct protocol version taking upgrades into account.
-        let protocol_id =
-            ProtocolId::new(&chainspec.genesis.name, &chainspec.genesis.protocol_version);
+        let protocol_id = ProtocolId::new(chainspec, PROTOCOL_NAME_INNER);
         let request_response_config = RequestResponseConfig::from(config);
         let libp2p_req_resp = RequestResponse::new(
             codec,
@@ -57,37 +58,15 @@ impl<P: PayloadT> Behavior<P> {
         Behavior {
             libp2p_req_resp,
             our_id,
-            _phantom: PhantomData,
         }
     }
 
     /// Sends a one-way message to a peer.
-    pub(in crate::components::network) fn send_message(
-        &mut self,
-        outgoing_message: OutgoingMessage<P>,
-    ) {
-        let serialized_message =
-            bincode::serialize(&outgoing_message.message).unwrap_or_else(|error| {
-                warn!(
-                    %error,
-                    message = ?outgoing_message.message,
-                    "{}: failed to serialize",
-                    self.our_id
-                );
-                vec![]
-            });
-
-        match &outgoing_message.destination {
-            NodeId::P2p(destination) => {
-                let request_id = self
-                    .libp2p_req_resp
-                    .send_request(destination, serialized_message);
-                trace!("{}: sent one-way message {}", self.our_id, request_id);
-            }
-            destination => {
-                warn!(%destination, "{}: can't send to small_network node ID via libp2p", self.our_id)
-            }
-        }
+    pub(in crate::components::network) fn send_message(&mut self, outgoing_message: Outgoing) {
+        let request_id = self
+            .libp2p_req_resp
+            .send_request(destination, outgoing_message);
+        trace!("{}: sent one-way message {}", self.our_id, request_id);
     }
 
     /// Called when `self.libp2p_req_resp` generates an event.
@@ -97,29 +76,16 @@ impl<P: PayloadT> Behavior<P> {
     fn handle_generated_event(
         &mut self,
         event: RequestResponseEvent<Vec<u8>, ()>,
-    ) -> Option<IncomingMessage<P>> {
+    ) -> Option<Incoming> {
         trace!("{}: {:?}", self.our_id, event);
 
         match event {
             RequestResponseEvent::Message {
                 peer,
                 message: RequestResponseMessage::Request { request, .. },
-            } => match bincode::deserialize::<Message<P>>(&request) {
-                Ok(message) => {
-                    trace!(?peer, %message, "{}: message received", self.our_id);
-                    let received_message = IncomingMessage {
-                        source: NodeId::from(peer),
-                        message,
-                    };
-                    return Some(received_message);
-                }
-                Err(error) => warn!(
-                    ?peer,
-                    ?error,
-                    "{}: failed to deserialize request",
-                    self.our_id
-                ),
-            },
+            } => {
+                return Some(Incoming::new(peer, message));
+            }
             RequestResponseEvent::Message {
                 message: RequestResponseMessage::Response { .. },
                 ..
@@ -160,9 +126,9 @@ impl<P: PayloadT> Behavior<P> {
     }
 }
 
-impl<P: PayloadT> NetworkBehaviour for Behavior<P> {
+impl NetworkBehaviour for Behavior {
     type ProtocolsHandler = <RequestResponse<Codec> as NetworkBehaviour>::ProtocolsHandler;
-    type OutEvent = IncomingMessage<P>;
+    type OutEvent = Incoming;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         self.libp2p_req_resp.new_handler()

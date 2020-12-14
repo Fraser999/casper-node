@@ -35,4 +35,16 @@ pub enum Error {
         address: Multiaddr,
         error: ConnectionLimit,
     },
+
+    /// Failed to serialize.
+    #[error("failed to serialize: {0}")]
+    Serialization(bincode::ErrorKind),
+
+    /// Failed to deserialize.
+    #[error("failed to deserialize: {0}")]
+    Deserialization(bincode::ErrorKind),
+
+    /// Message too large.
+    #[error("message of {actual_size} bytes exceeds limit of {max_size} bytes")]
+    MessageTooLarge { max_size: u32, actual_size: u64 },
 }

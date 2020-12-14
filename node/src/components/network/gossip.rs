@@ -10,7 +10,7 @@ use std::{
 use libp2p::{
     core::{
         connection::{ConnectionId, ListenerId},
-        ConnectedPoint,
+        ConnectedPoint, ProtocolName,
     },
     gossipsub::{
         Gossipsub, GossipsubConfigBuilder, GossipsubEvent, MessageAuthenticity, Topic,
@@ -22,26 +22,54 @@ use libp2p::{
 use once_cell::sync::Lazy;
 use tracing::{trace, warn};
 
-use crate::{components::network::Config, types::NodeId};
+use super::{Config, Error, Message, PayloadT, ProtocolId};
+use crate::{components::chainspec_loader::Chainspec, types::NodeId};
 
-static LISTENING_ADDRESSES_TOPIC: Lazy<Topic> =
-    Lazy::new(|| Topic::new("listening-addresses".into()));
+/// The inner portion of the `ProtocolId` for the gossip behavior.  A standard prefix and suffix
+/// will be applied to create the full protocol name.
+const PROTOCOL_NAME_INNER: &str = "validator/gossip";
 
-#[derive(Debug)]
-pub(in crate::components::network) struct ListeningAddresses {
-    pub source: PeerId,
-    pub addresses: Vec<Multiaddr>,
+static TOPIC: Lazy<Topic> = Lazy::new(|| Topic::new("all".into()));
+
+pub(super) struct GossipMessage(pub Vec<u8>);
+
+impl GossipMessage {
+    pub(super) fn new<P: PayloadT>(message: &Message<P>, max_size: u32) -> Result<Self, Error> {
+        let serialized_message =
+            bincode::serialize(message).map_err(|error| Error::Serialization(*error))?;
+
+        if serialized_message.len() > max_size as usize {
+            return Err(Error::MessageTooLarge {
+                max_size,
+                actual_size: serialized_message.len() as u64,
+            });
+        }
+
+        Ok(GossipMessage(serialized_message))
+    }
 }
 
-/// Implementor of the libp2p `NetworkBehaviour` for gossiping addresses.
+impl From<GossipMessage> for Vec<u8> {
+    fn from(message: GossipMessage) -> Self {
+        message.0
+    }
+}
+
+/// Implementor of the libp2p `NetworkBehaviour` for gossiping.
 pub(in crate::components::network) struct Behavior {
     gossipsub: Gossipsub,
     our_id: NodeId,
 }
 
 impl Behavior {
-    pub(in crate::components::network) fn new(config: &Config, our_id: NodeId) -> Self {
+    pub(in crate::components::network) fn new(
+        config: &Config,
+        chainspec: &Chainspec,
+        our_id: NodeId,
+    ) -> Self {
+        let protocol_id = ProtocolId::new(chainspec, PROTOCOL_NAME_INNER);
         let gossipsub_config = GossipsubConfigBuilder::new()
+            .protocol_id(protocol_id.protocol_name().to_vec())
             .heartbeat_interval(config.gossip_heartbeat_interval.into())
             .max_transmit_size(config.gossip_max_message_size as usize)
             .duplicate_cache_time(config.gossip_duplicate_cache_timeout.into())
@@ -53,68 +81,40 @@ impl Behavior {
         };
         let mut gossipsub =
             Gossipsub::new(MessageAuthenticity::Author(our_peer_id), gossipsub_config);
-        gossipsub.subscribe(LISTENING_ADDRESSES_TOPIC.clone());
+        gossipsub.subscribe(TOPIC.clone());
         Behavior { gossipsub, our_id }
     }
 
-    /// Gossips our listening addresses.
-    pub(in crate::components::network) fn publish_our_addresses(
+    /// Gossips the given message.
+    pub(in crate::components::network) fn gossip_message<P: PayloadT>(
         &mut self,
-        listening_addresses: Vec<Multiaddr>,
+        message: GossipMessage,
     ) {
-        let serialized_message = bincode::serialize(&listening_addresses).unwrap_or_else(|error| {
-            warn!(
-                %error,
-                message = ?listening_addresses,
-                "{}: failed to serialize",
-                self.our_id
-            );
-            vec![]
-        });
-
-        if let Err(error) = self
-            .gossipsub
-            .publish(&*LISTENING_ADDRESSES_TOPIC, serialized_message)
-        {
-            warn!(?error, "{}: failed to gossip our addresses", self.our_id);
-        } else {
-            trace!("{}: gossiped our addresses", self.our_id);
+        if let Err(error) = self.gossipsub.publish(&*TOPIC, message) {
+            warn!(?error, "{}: failed to gossip message", self.our_id);
         }
     }
 
     /// Called when `self.gossipsub` generates an event.
     ///
-    /// Returns a peer's listening addresses if the event provided any.
-    fn handle_generated_event(&mut self, event: GossipsubEvent) -> Option<ListeningAddresses> {
+    /// Returns a `GossipMessage` if the event provided one.
+    fn handle_generated_event(&mut self, event: GossipsubEvent) -> Option<GossipMessage> {
         match event {
             GossipsubEvent::Message(received_from, _, message) => {
-                trace!(?message, "{}: received addresses via gossip", self.our_id);
+                trace!(?message, "{}: received message via gossip", self.our_id);
 
                 let source = match &message.source {
                     Some(peer_id) => peer_id.clone(),
                     None => {
                         warn!(
                             ?message,
-                            "{}: received gossiped listening addresses with no source ID",
-                            self.our_id
+                            "{}: received gossiped message with no source ID", self.our_id
                         );
                         return None;
                     }
                 };
 
-                match bincode::deserialize::<Vec<Multiaddr>>(&message.data) {
-                    Ok(addresses) => {
-                        let listening_addresses = ListeningAddresses { source, addresses };
-                        return Some(listening_addresses);
-                    }
-                    Err(error) => warn!(
-                        %received_from,
-                        ?message,
-                        ?error,
-                        "{}: failed to deserialize gossiped message",
-                        self.our_id
-                    ),
-                }
+                return Some(GossipMessage(message.data));
             }
             GossipsubEvent::Subscribed { peer_id, topic } => {
                 trace!(%peer_id, %topic, "{}: peer subscribed to gossip topic", self.our_id)
@@ -129,7 +129,7 @@ impl Behavior {
 
 impl NetworkBehaviour for Behavior {
     type ProtocolsHandler = <Gossipsub as NetworkBehaviour>::ProtocolsHandler;
-    type OutEvent = ListeningAddresses;
+    type OutEvent = GossipMessage;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         self.gossipsub.new_handler()
@@ -237,10 +237,8 @@ impl NetworkBehaviour for Behavior {
         loop {
             match self.gossipsub.poll(context, poll_params) {
                 Poll::Ready(NetworkBehaviourAction::GenerateEvent(event)) => {
-                    if let Some(listening_addresses) = self.handle_generated_event(event) {
-                        return Poll::Ready(NetworkBehaviourAction::GenerateEvent(
-                            listening_addresses,
-                        ));
+                    if let Some(gossip_message[[) = self.handle_generated_event(event) {
+                        return Poll::Ready(NetworkBehaviourAction::GenerateEvent(gossip_message));
                     }
                 }
                 Poll::Ready(NetworkBehaviourAction::DialAddress { address }) => {

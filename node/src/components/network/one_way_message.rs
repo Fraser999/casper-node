@@ -6,8 +6,6 @@
 
 mod behavior;
 mod message;
-mod protocol_id;
 
 pub(super) use behavior::Behavior;
-pub(super) use message::{Codec, IncomingMessage, Message, OutgoingMessage};
-pub(super) use protocol_id::ProtocolId;
+pub(super) use message::{Codec, Incoming, Outgoing};

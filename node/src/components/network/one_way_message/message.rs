@@ -7,41 +7,64 @@ use std::{
 
 use futures::{AsyncReadExt, AsyncWriteExt, FutureExt};
 use futures_io::{AsyncRead, AsyncWrite};
-use libp2p::request_response::RequestResponseCodec;
+use libp2p::{request_response::RequestResponseCodec, PeerId};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
-use super::ProtocolId;
-use crate::{components::network::Config, types::NodeId};
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Message<P>(P);
-
-impl<P> Message<P> {
-    pub fn new(payload: P) -> Self {
-        Message(payload)
-    }
-
-    pub fn into_payload(self) -> P {
-        self.0
-    }
-}
-
-impl<P: Display> Display for Message<P> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "payload: {}", self.0)
-    }
-}
+use crate::{
+    components::network::{Config, Error, Message, PayloadT, ProtocolId},
+    types::NodeId,
+};
 
 #[derive(Debug)]
-pub(in crate::components::network) struct IncomingMessage<P> {
-    pub source: NodeId,
-    pub message: Message<P>,
+pub(in crate::components::network) struct Incoming {
+    pub source: PeerId,
+    pub message: Vec<u8>,
 }
 
+impl Incoming {}
+
 #[derive(Debug)]
-pub(in crate::components::network) struct OutgoingMessage<P> {
-    pub destination: NodeId,
-    pub message: Message<P>,
+pub(in crate::components::network) struct Outgoing {
+    pub destination: PeerId,
+    pub message: Vec<u8>,
+}
+
+impl Outgoing {
+    pub(in crate::components::network) fn new<P: PayloadT>(
+        destination: NodeId,
+        message: &Message<P>,
+        max_size: u32,
+    ) -> Result<Self, Error> {
+        let serialized_message =
+            bincode::serialize(message).map_err(|error| Error::Serialization(*error))?;
+
+        if serialized_message.len() > max_size as usize {
+            return Err(Error::MessageTooLarge {
+                max_size,
+                actual_size: serialized_message.len() as u64,
+            });
+        }
+
+        match &destination {
+            NodeId::P2p(destination) => Ok(Outgoing {
+                destination: destination.clone(),
+                message: serialized_message,
+            }),
+            destination => {
+                unreachable!(
+                    "can't send to {} (small_network node ID) via libp2p",
+                    destination
+                )
+            }
+        }
+    }
+}
+
+impl From<Outgoing> for Vec<u8> {
+    fn from(outgoing: Outgoing) -> Self {
+        outgoing.message
+    }
 }
 
 /// Implements libp2p `RequestResponseCodec` for one-way messages, i.e. requests which expect no
