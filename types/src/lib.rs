@@ -6,10 +6,6 @@
 //! the crate's `std` feature.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(
-    not(feature = "no-unstable-features"),
-    feature(min_specialization, try_reserve)
-)]
 #![doc(html_root_url = "https://docs.rs/casper-types/0.6.0")]
 #![doc(
     html_favicon_url = "https://raw.githubusercontent.com/CasperLabs/casper-node/master/images/CasperLabs_Logo_Favicon_RGB_50px.png",

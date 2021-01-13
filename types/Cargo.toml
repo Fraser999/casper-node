@@ -44,7 +44,9 @@ version-sync = "0.9"
 serde_test = "1.0.117"
 
 [features]
-default = ["base16/alloc", "serde/alloc", "serde_json/alloc"]
+default = ["std"]
+# Enables alloc support for when not using "std"
+alloc = ["base16/alloc", "serde/alloc", "serde_json/alloc"]
 std = [
     "base16/std",
     "base64/std",
