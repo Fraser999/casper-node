@@ -156,6 +156,7 @@ where
                     deploy_config: *deploy_config,
                     state_key: state_key.clone(),
                     request_queue: Default::default(),
+                    malice: Malice::ReplayPrevious,
                 };
 
                 // Replay postponed events onto new state.
@@ -196,6 +197,24 @@ where
     }
 }
 
+#[derive(PartialEq, Eq, Clone, Copy, Debug, DataSize)]
+enum Malice {
+    /// Include deploys from previous blocks in the proposed block.
+    ReplayPrevious,
+    /// Include duplicate deploys within the proposed block.
+    DuplicateWithinSingleBlock,
+}
+
+impl Malice {
+    /// Toggles to the next type of malice.
+    fn next(&mut self) {
+        match self {
+            Malice::ReplayPrevious => *self = Malice::DuplicateWithinSingleBlock,
+            Malice::DuplicateWithinSingleBlock => *self = Malice::ReplayPrevious,
+        }
+    }
+}
+
 /// State of operational block proposer.
 #[derive(DataSize, Debug)]
 struct BlockProposerReady {
@@ -211,6 +230,8 @@ struct BlockProposerReady {
     state_key: Vec<u8>,
     /// The queue of requests awaiting being handled.
     request_queue: RequestQueue,
+    /// The type of malice to perform when proposing the next block.
+    malice: Malice,
 }
 
 impl BlockProposerReady {
@@ -335,11 +356,11 @@ impl BlockProposerReady {
         I: IntoIterator<Item = DeployHash>,
     {
         for deploy_hash in deploys.into_iter() {
-            match self.sets.pending.remove(&deploy_hash) {
+            match self.sets.pending.get(&deploy_hash) {
                 Some(deploy_type) => {
                     self.sets
                         .finalized_deploys
-                        .insert(deploy_hash, deploy_type.take_header());
+                        .insert(deploy_hash, deploy_type.clone().take_header());
                 }
                 // If we haven't seen this deploy before, we still need to take note of it.
                 _ => {
@@ -384,7 +405,7 @@ impl BlockProposerReady {
     }
 
     /// Checks if a deploy is valid (for inclusion into the next block).
-    fn is_deploy_valid(
+    fn _is_deploy_valid(
         &self,
         header: &DeployHeader,
         block_timestamp: Timestamp,
@@ -395,7 +416,7 @@ impl BlockProposerReady {
             header
                 .dependencies()
                 .iter()
-                .all(|dep| past_deploys.contains(dep) || self.contains_finalized(dep))
+                .all(|dep| past_deploys.contains(dep) || self._contains_finalized(dep))
         };
         header.is_valid(deploy_config, block_timestamp) && all_deps_resolved()
     }
@@ -408,6 +429,10 @@ impl BlockProposerReady {
         past_deploys: HashSet<DeployHash>,
         random_bit: bool,
     ) -> ProtoBlock {
+        self.malice.next();
+
+        info!("performing {:?}", self.malice);
+
         let max_transfers = deploy_config.block_max_transfer_count as usize;
         let max_deploys = deploy_config.block_max_deploy_count as usize;
         let max_block_size_bytes = deploy_config.max_block_size as usize;
@@ -428,25 +453,34 @@ impl BlockProposerReady {
                 break;
             }
 
-            if !self.is_deploy_valid(
-                &deploy_type.header(),
-                block_timestamp,
-                &deploy_config,
-                &past_deploys,
-            ) || past_deploys.contains(hash)
-                || self.sets.finalized_deploys.contains_key(hash)
-            {
-                continue;
+            // If we're aiming to duplicate a deploy within a block, don't propose deploys we know
+            // are already included in a previous block.
+            if past_deploys.contains(hash) || self.sets.finalized_deploys.contains_key(hash) {
+                if self.malice == Malice::DuplicateWithinSingleBlock {
+                    continue;
+                } else {
+                    info!("re-proposing {}", hash);
+                }
             }
 
             // always include wasm-less transfers if we are under the max for them
             if deploy_type.is_transfer() && !at_max_transfers {
                 transfers.push(*hash);
+                if self.malice == Malice::DuplicateWithinSingleBlock {
+                    info!("duplicating transfer {} in single block", hash);
+                    transfers.push(*hash);
+                }
             } else if deploy_type.is_wasm() && !at_max_deploys {
-                if block_size_running_total + deploy_type.size() > max_block_size_bytes {
+                let deploy_size = if self.malice == Malice::DuplicateWithinSingleBlock {
+                    deploy_type.size() * 2
+                } else {
+                    deploy_type.size()
+                };
+                if block_size_running_total + deploy_size > max_block_size_bytes {
                     continue;
                 }
-                let payment_amount_gas = match Gas::from_motes(
+
+                let mut payment_amount_gas = match Gas::from_motes(
                     deploy_type.payment_amount(),
                     deploy_type.header().gas_price(),
                 ) {
@@ -456,6 +490,9 @@ impl BlockProposerReady {
                         continue;
                     }
                 };
+                if self.malice == Malice::DuplicateWithinSingleBlock {
+                    payment_amount_gas = payment_amount_gas + payment_amount_gas;
+                }
                 let gas_running_total = if let Some(gas_running_total) =
                     block_gas_running_total.checked_add(payment_amount_gas)
                 {
@@ -469,8 +506,12 @@ impl BlockProposerReady {
                     continue;
                 }
                 wasm_deploys.push(*hash);
+                if self.malice == Malice::DuplicateWithinSingleBlock {
+                    info!("duplicating wasm deploy {} in single block", hash);
+                    wasm_deploys.push(*hash);
+                }
                 block_gas_running_total = gas_running_total;
-                block_size_running_total += deploy_type.size();
+                block_size_running_total += deploy_size;
             }
         }
 
@@ -482,7 +523,7 @@ impl BlockProposerReady {
         self.sets.prune(current_instant)
     }
 
-    fn contains_finalized(&self, dep: &DeployHash) -> bool {
+    fn _contains_finalized(&self, dep: &DeployHash) -> bool {
         self.sets.finalized_deploys.contains_key(dep) || self.unhandled_finalized.contains(dep)
     }
 }

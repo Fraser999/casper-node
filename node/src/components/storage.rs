@@ -43,7 +43,7 @@ mod tests;
 #[cfg(test)]
 use std::{collections::BTreeSet, convert::TryFrom};
 use std::{
-    collections::{btree_map::Entry, BTreeMap},
+    collections::{btree_map::Entry, BTreeMap, HashSet},
     fmt::{self, Display, Formatter},
     fs, io, mem,
     path::PathBuf,
@@ -413,6 +413,27 @@ impl Storage {
         // average the actual execution time will be very low.
         Ok(match req {
             StorageRequest::PutBlock { block, responder } => {
+                assert_eq!(
+                    block.body().deploy_hashes().len(),
+                    block
+                        .body()
+                        .deploy_hashes()
+                        .iter()
+                        .collect::<HashSet<_>>()
+                        .len(),
+                    "got duplicate deploy(s) in single block"
+                );
+                assert_eq!(
+                    block.body().transfer_hashes().len(),
+                    block
+                        .body()
+                        .transfer_hashes()
+                        .iter()
+                        .collect::<HashSet<_>>()
+                        .len(),
+                    "got duplicate transfer(s) in single block"
+                );
+
                 let mut txn = self.env.begin_rw_txn()?;
                 if !txn.put_value(
                     self.block_body_db,
@@ -552,6 +573,14 @@ impl Storage {
                     metadata
                         .execution_results
                         .insert(*block_hash, execution_result);
+
+                    if metadata.execution_results.len() > 1 {
+                        panic!(
+                            "malicious node successfully got multiple exec results for {}",
+                            deploy_hash
+                        );
+                    }
+
                     let was_written =
                         txn.put_value(self.deploy_metadata_db, &deploy_hash, &metadata, true)?;
                     assert!(
