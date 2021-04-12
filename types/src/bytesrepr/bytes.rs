@@ -85,28 +85,25 @@ impl AsRef<[u8]> for Bytes {
 
 impl ToBytes for Bytes {
     #[inline(always)]
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        super::vec_u8_to_bytes(&self.0)
-    }
-
-    #[inline(always)]
-    fn into_bytes(self) -> Result<Vec<u8>, Error> {
-        super::vec_u8_to_bytes(&self.0)
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.as_slice().to_bytes(sink)
     }
 
     #[inline(always)]
     fn serialized_length(&self) -> usize {
-        super::vec_u8_serialized_length(&self.0)
+        self.as_slice().serialized_length()
     }
 }
 
 impl FromBytes for Bytes {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), super::Error> {
         let (size, remainder) = u32::from_bytes(bytes)?;
         let (result, remainder) = super::safe_split_at(remainder, size as usize)?;
         Ok((Bytes(result.to_vec()), remainder))
     }
 
+    #[inline(always)]
     fn from_vec(stream: Vec<u8>) -> Result<(Self, Vec<u8>), Error> {
         let (size, mut stream) = u32::from_vec(stream)?;
 
@@ -299,7 +296,7 @@ impl Serialize for Bytes {
 
 #[cfg(test)]
 mod tests {
-    use crate::bytesrepr::{self, Error, FromBytes, ToBytes, U32_SERIALIZED_LENGTH};
+    use crate::bytesrepr::{self, Error, FromBytes, U32_SERIALIZED_LENGTH};
     use alloc::vec::Vec;
 
     use serde_json::json;
@@ -312,7 +309,7 @@ mod tests {
     #[test]
     fn vec_u8_from_bytes() {
         let data: Bytes = vec![1, 2, 3, 4, 5].into();
-        let data_bytes = data.to_bytes().unwrap();
+        let data_bytes = bytesrepr::serialize(&data).unwrap();
         assert!(Bytes::from_bytes(&data_bytes[..U32_SERIALIZED_LENGTH / 2]).is_err());
         assert!(Bytes::from_bytes(&data_bytes[..U32_SERIALIZED_LENGTH]).is_err());
         assert!(Bytes::from_bytes(&data_bytes[..U32_SERIALIZED_LENGTH + 2]).is_err());
@@ -327,7 +324,7 @@ mod tests {
     #[test]
     fn should_fail_to_serialize_deserialize_malicious_bytes() {
         let data: Bytes = vec![1, 2, 3, 4, 5].into();
-        let mut serialized = data.to_bytes().expect("should serialize data");
+        let mut serialized = bytesrepr::serialize(&data).expect("should serialize data");
         serialized = serialized[..serialized.len() - 1].to_vec();
         let res: Result<(_, &[u8]), Error> = Bytes::from_bytes(&serialized);
         assert_eq!(res.unwrap_err(), Error::EarlyEndOfStream);
@@ -337,7 +334,7 @@ mod tests {
     fn should_serialize_deserialize_bytes_and_keep_rem() {
         let data: Bytes = vec![1, 2, 3, 4, 5].into();
         let expected_rem: Vec<u8> = vec![6, 7, 8, 9, 10];
-        let mut serialized = data.to_bytes().expect("should serialize data");
+        let mut serialized = bytesrepr::serialize(&data).expect("should serialize data");
         serialized.extend(&expected_rem);
         let (deserialized, rem): (Bytes, &[u8]) =
             FromBytes::from_bytes(&serialized).expect("should deserialize data");

@@ -99,8 +99,8 @@ impl Into<[u8; Blake2bHash::LENGTH]> for Blake2bHash {
 
 impl ToBytes for Blake2bHash {
     #[inline(always)]
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        self.0.to_bytes()
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.0.to_bytes(sink)
     }
 
     #[inline(always)]

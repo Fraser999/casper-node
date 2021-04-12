@@ -48,7 +48,7 @@ pub fn write<T: CLTyped + ToBytes>(uref: URef, value: T) {
     let key = Key::from(uref);
     let (key_ptr, key_size, _bytes1) = contract_api::to_ptr(key);
 
-    let cl_value = CLValue::from_t(value).unwrap_or_revert();
+    let cl_value = CLValue::from_t(&value).unwrap_or_revert();
     let (cl_value_ptr, cl_value_size, _bytes2) = contract_api::to_ptr(cl_value);
 
     unsafe {
@@ -61,7 +61,7 @@ pub fn add<T: CLTyped + ToBytes>(uref: URef, value: T) {
     let key = Key::from(uref);
     let (key_ptr, key_size, _bytes1) = contract_api::to_ptr(key);
 
-    let cl_value = CLValue::from_t(value).unwrap_or_revert();
+    let cl_value = CLValue::from_t(&value).unwrap_or_revert();
     let (cl_value_ptr, cl_value_size, _bytes2) = contract_api::to_ptr(cl_value);
 
     unsafe {
@@ -73,7 +73,7 @@ pub fn add<T: CLTyped + ToBytes>(uref: URef, value: T) {
 /// Returns a new unforgeable pointer, where the value is initialized to `init`.
 pub fn new_uref<T: CLTyped + ToBytes>(init: T) -> URef {
     let uref_non_null_ptr = contract_api::alloc_bytes(UREF_SERIALIZED_LENGTH);
-    let cl_value = CLValue::from_t(init).unwrap_or_revert();
+    let cl_value = CLValue::from_t(&init).unwrap_or_revert();
     let (cl_value_ptr, cl_value_size, _cl_value_bytes) = contract_api::to_ptr(cl_value);
     let bytes = unsafe {
         ext_ffi::casper_new_uref(uref_non_null_ptr.as_ptr(), cl_value_ptr, cl_value_size); // URef has `READ_ADD_WRITE`

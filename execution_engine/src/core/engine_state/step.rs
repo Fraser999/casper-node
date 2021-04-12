@@ -3,9 +3,7 @@ use std::{collections::BTreeMap, fmt::Display, vec::Vec};
 use core::fmt;
 use uint::static_assertions::_core::fmt::Formatter;
 
-use casper_types::{
-    bytesrepr, bytesrepr::ToBytes, CLValueError, EraId, Key, ProtocolVersion, PublicKey, U512,
-};
+use casper_types::{bytesrepr, CLValueError, EraId, Key, ProtocolVersion, PublicKey, U512};
 
 use crate::{
     core::engine_state::{Error, GetEraValidatorsError},
@@ -89,7 +87,7 @@ impl StepRequest {
         let mut ret = vec![];
         for slash_item in &self.slash_items {
             let public_key: PublicKey =
-                bytesrepr::deserialize(slash_item.validator_id.clone().to_bytes()?)?;
+                bytesrepr::deserialize(bytesrepr::serialize(&slash_item.validator_id)?)?;
             ret.push(public_key);
         }
         Ok(ret)

@@ -113,7 +113,7 @@ fn large_function() {
     storage::add(uref, VALUE_FOR_ADDITION_2);
 
     let keys_to_return = truncate_named_keys(named_keys, &mut rng);
-    runtime::ret(CLValue::from_t(keys_to_return).unwrap_or_revert());
+    runtime::ret(CLValue::from_t(&keys_to_return).unwrap_or_revert());
 }
 
 fn small_function() {

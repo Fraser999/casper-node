@@ -100,7 +100,7 @@ macro_rules! make_array_newtype {
         }
 
         impl bytesrepr::ToBytes for $name {
-            fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+            fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
                 self.0.to_bytes()
             }
 

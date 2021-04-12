@@ -20,7 +20,7 @@ const CONTRACT_VERSION: &str = "contract_version";
 pub extern "C" fn create() {
     let reference: URef = storage::new_uref(DATA);
     let read_only_reference: URef = URef::new(reference.addr(), AccessRights::READ);
-    let return_value = CLValue::from_t(read_only_reference).unwrap_or_revert();
+    let return_value = CLValue::from_t(&read_only_reference).unwrap_or_revert();
     runtime::ret(return_value)
 }
 

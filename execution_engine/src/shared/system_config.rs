@@ -96,18 +96,16 @@ impl Distribution<SystemConfig> for Standard {
 }
 
 impl ToBytes for SystemConfig {
-    fn to_bytes(&self) -> Result<Vec<u8>, casper_types::bytesrepr::Error> {
-        let mut ret = bytesrepr::unchecked_allocate_buffer(self);
-
-        ret.append(&mut self.wasmless_transfer_cost.to_bytes()?);
-        ret.append(&mut self.auction_costs.to_bytes()?);
-        ret.append(&mut self.mint_costs.to_bytes()?);
-        ret.append(&mut self.handle_payment_costs.to_bytes()?);
-        ret.append(&mut self.standard_payment_costs.to_bytes()?);
-
-        Ok(ret)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.wasmless_transfer_cost.to_bytes(sink)?;
+        self.auction_costs.to_bytes(sink)?;
+        self.mint_costs.to_bytes(sink)?;
+        self.handle_payment_costs.to_bytes(sink)?;
+        self.standard_payment_costs.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.wasmless_transfer_cost.serialized_length()
             + self.auction_costs.serialized_length()
@@ -118,6 +116,7 @@ impl ToBytes for SystemConfig {
 }
 
 impl FromBytes for SystemConfig {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), casper_types::bytesrepr::Error> {
         let (wasmless_transfer_cost, rem) = FromBytes::from_bytes(bytes)?;
         let (auction_costs, rem) = FromBytes::from_bytes(rem)?;

@@ -148,19 +148,17 @@ impl ProtocolData {
 }
 
 impl ToBytes for ProtocolData {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut ret = bytesrepr::unchecked_allocate_buffer(self);
-
-        ret.append(&mut self.wasm_config.to_bytes()?);
-        ret.append(&mut self.system_config.to_bytes()?);
-        ret.append(&mut self.mint.to_bytes()?);
-        ret.append(&mut self.handle_payment.to_bytes()?);
-        ret.append(&mut self.standard_payment.to_bytes()?);
-        ret.append(&mut self.auction.to_bytes()?);
-
-        Ok(ret)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.wasm_config.to_bytes(sink)?;
+        self.system_config.to_bytes(sink)?;
+        self.mint.to_bytes(sink)?;
+        self.handle_payment.to_bytes(sink)?;
+        self.standard_payment.to_bytes(sink)?;
+        self.auction.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.wasm_config.serialized_length()
             + self.system_config.serialized_length()
@@ -172,6 +170,7 @@ impl ToBytes for ProtocolData {
 }
 
 impl FromBytes for ProtocolData {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (wasm_config, rem) = WasmConfig::from_bytes(bytes)?;
         let (system_config, rem) = FromBytes::from_bytes(rem)?;

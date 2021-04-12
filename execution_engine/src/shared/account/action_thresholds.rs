@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use casper_types::{
     account::{ActionType, SetThresholdFailure, Weight, WEIGHT_SERIALIZED_LENGTH},
-    bytesrepr::{self, Error, FromBytes, ToBytes},
+    bytesrepr::{Error, FromBytes, ToBytes},
 };
 
 /// Thresholds that have to be met when executing an action of a certain type.
@@ -92,19 +92,20 @@ impl Default for ActionThresholds {
 }
 
 impl ToBytes for ActionThresholds {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = bytesrepr::unchecked_allocate_buffer(self);
-        result.append(&mut self.deployment.to_bytes()?);
-        result.append(&mut self.key_management.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.deployment.to_bytes(sink)?;
+        self.key_management.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         2 * WEIGHT_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for ActionThresholds {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (deployment, rem) = Weight::from_bytes(&bytes)?;
         let (key_management, rem) = Weight::from_bytes(&rem)?;
@@ -129,6 +130,8 @@ pub mod gens {
 
 #[cfg(test)]
 mod tests {
+    use casper_types::bytesrepr;
+
     use super::*;
 
     #[test]

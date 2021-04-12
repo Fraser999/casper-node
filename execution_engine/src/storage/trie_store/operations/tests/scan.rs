@@ -33,7 +33,7 @@ where
 
     for (index, parent) in parents.into_iter().rev() {
         let expected_tip_hash = {
-            let tip_bytes = tip.to_bytes().unwrap();
+            let tip_bytes = bytesrepr::serialize(&tip).unwrap();
             Blake2bHash::new(&tip_bytes)
         };
         match parent {
@@ -66,7 +66,7 @@ mod partial_tries {
             let context = LmdbTestContext::new(&tries).unwrap();
 
             for leaf in TEST_LEAVES.iter() {
-                let leaf_bytes = leaf.to_bytes().unwrap();
+                let leaf_bytes = bytesrepr::serialize(leaf).unwrap();
                 check_scan::<_, _, error::Error>(
                     correlation_id,
                     &context.environment,
@@ -87,7 +87,7 @@ mod partial_tries {
             let context = InMemoryTestContext::new(&tries).unwrap();
 
             for leaf in TEST_LEAVES.iter() {
-                let leaf_bytes = leaf.to_bytes().unwrap();
+                let leaf_bytes = bytesrepr::serialize(leaf).unwrap();
                 check_scan::<_, _, in_memory::Error>(
                     correlation_id,
                     &context.environment,
@@ -117,7 +117,7 @@ mod full_tries {
 
             for state in &states[..state_index] {
                 for leaf in TEST_LEAVES.iter() {
-                    let leaf_bytes = leaf.to_bytes().unwrap();
+                    let leaf_bytes = bytesrepr::serialize(leaf).unwrap();
                     check_scan::<_, _, error::Error>(
                         correlation_id,
                         &context.environment,
@@ -144,7 +144,7 @@ mod full_tries {
 
             for state in &states[..state_index] {
                 for leaf in TEST_LEAVES.iter() {
-                    let leaf_bytes = leaf.to_bytes().unwrap();
+                    let leaf_bytes = bytesrepr::serialize(leaf).unwrap();
                     check_scan::<_, _, in_memory::Error>(
                         correlation_id,
                         &context.environment,

@@ -6,24 +6,24 @@ use casper_execution_engine::{
 };
 use casper_types::{
     account::AccountHash,
-    bytesrepr::{FromBytes, ToBytes},
+    bytesrepr::{self, FromBytes},
     CLValue, Key,
 };
 
 fn serialize_trie_leaf(b: &mut Bencher) {
     let leaf = Trie::Leaf {
         key: Key::Account(AccountHash::new([0; 32])),
-        value: StoredValue::CLValue(CLValue::from_t(42_i32).unwrap()),
+        value: StoredValue::CLValue(CLValue::from_t(&42_i32).unwrap()),
     };
-    b.iter(|| ToBytes::to_bytes(black_box(&leaf)));
+    b.iter(|| bytesrepr::serialize(black_box(&leaf)).unwrap());
 }
 
 fn deserialize_trie_leaf(b: &mut Bencher) {
     let leaf = Trie::Leaf {
         key: Key::Account(AccountHash::new([0; 32])),
-        value: StoredValue::CLValue(CLValue::from_t(42_i32).unwrap()),
+        value: StoredValue::CLValue(CLValue::from_t(&42_i32).unwrap()),
     };
-    let leaf_bytes = leaf.to_bytes().unwrap();
+    let leaf_bytes = bytesrepr::serialize(&leaf).unwrap();
     b.iter(|| Trie::<Key, StoredValue>::from_bytes(black_box(&leaf_bytes)));
 }
 
@@ -31,14 +31,14 @@ fn serialize_trie_node(b: &mut Bencher) {
     let node = Trie::<Key, StoredValue>::Node {
         pointer_block: Box::new(PointerBlock::default()),
     };
-    b.iter(|| ToBytes::to_bytes(black_box(&node)));
+    b.iter(|| bytesrepr::serialize(black_box(&node)).unwrap());
 }
 
 fn deserialize_trie_node(b: &mut Bencher) {
     let node = Trie::<Key, StoredValue>::Node {
         pointer_block: Box::new(PointerBlock::default()),
     };
-    let node_bytes = node.to_bytes().unwrap();
+    let node_bytes = bytesrepr::serialize(&node).unwrap();
 
     b.iter(|| Trie::<Key, StoredValue>::from_bytes(black_box(&node_bytes)));
 }
@@ -49,7 +49,7 @@ fn serialize_trie_node_pointer(b: &mut Bencher) {
         pointer: Pointer::NodePointer(Blake2bHash::new(&[0; 32])),
     };
 
-    b.iter(|| ToBytes::to_bytes(black_box(&node)));
+    b.iter(|| bytesrepr::serialize(black_box(&node)).unwrap());
 }
 
 fn deserialize_trie_node_pointer(b: &mut Bencher) {
@@ -57,7 +57,7 @@ fn deserialize_trie_node_pointer(b: &mut Bencher) {
         affix: (0..255).collect(),
         pointer: Pointer::NodePointer(Blake2bHash::new(&[0; 32])),
     };
-    let node_bytes = node.to_bytes().unwrap();
+    let node_bytes = bytesrepr::serialize(&node).unwrap();
 
     b.iter(|| Trie::<Key, StoredValue>::from_bytes(black_box(&node_bytes)));
 }

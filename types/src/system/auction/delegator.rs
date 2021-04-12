@@ -148,16 +148,16 @@ impl CLTyped for Delegator {
 }
 
 impl ToBytes for Delegator {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut buffer = bytesrepr::allocate_buffer(self)?;
-        buffer.extend(self.delegator_public_key.to_bytes()?);
-        buffer.extend(self.staked_amount.to_bytes()?);
-        buffer.extend(self.bonding_purse.to_bytes()?);
-        buffer.extend(self.validator_public_key.to_bytes()?);
-        buffer.extend(self.vesting_schedule.to_bytes()?);
-        Ok(buffer)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.delegator_public_key.to_bytes(sink)?;
+        self.staked_amount.to_bytes(sink)?;
+        self.bonding_purse.to_bytes(sink)?;
+        self.validator_public_key.to_bytes(sink)?;
+        self.vesting_schedule.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.delegator_public_key.serialized_length()
             + self.staked_amount.serialized_length()
@@ -168,6 +168,7 @@ impl ToBytes for Delegator {
 }
 
 impl FromBytes for Delegator {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (delegator_public_key, bytes) = PublicKey::from_bytes(bytes)?;
         let (staked_amount, bytes) = U512::from_bytes(bytes)?;

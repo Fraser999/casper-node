@@ -1,7 +1,8 @@
-use casper_types::bytesrepr::{self, FromBytes, ToBytes};
 use datasize::DataSize;
 use rand::{distributions::Standard, prelude::*, Rng};
 use serde::{Deserialize, Serialize};
+
+use casper_types::bytesrepr::{self, FromBytes, ToBytes};
 
 pub const DEFAULT_PAY_COST: u32 = 10_000;
 
@@ -20,18 +21,19 @@ impl Default for StandardPaymentCosts {
 }
 
 impl ToBytes for StandardPaymentCosts {
-    fn to_bytes(&self) -> Result<Vec<u8>, casper_types::bytesrepr::Error> {
-        let mut ret = bytesrepr::unchecked_allocate_buffer(self);
-        ret.append(&mut self.pay.to_bytes()?);
-        Ok(ret)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.pay.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.pay.serialized_length()
     }
 }
 
 impl FromBytes for StandardPaymentCosts {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), casper_types::bytesrepr::Error> {
         let (pay, rem) = FromBytes::from_bytes(bytes)?;
         Ok((Self { pay }, rem))

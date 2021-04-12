@@ -113,7 +113,7 @@ mod tests {
     use alloc::collections::BTreeMap;
 
     fn test_value<T: ToBytes + Serialize + Clone + CLTyped>(value: T) {
-        let cl_value = CLValue::from_t(value.clone()).unwrap();
+        let cl_value = CLValue::from_t(&value).unwrap();
         let cl_value_as_json: Value = cl_value_to_json(&cl_value).unwrap();
         let expected = json!(value);
         assert_eq!(cl_value_as_json, expected);
@@ -144,7 +144,7 @@ mod tests {
             PublicKey::from(SecretKey::ed25519_from_bytes([3; SecretKey::ED25519_LENGTH]).unwrap());
         let a_hex = a.to_hex();
         let b_hex = b.to_hex();
-        let cl_value = CLValue::from_t(vec![a, b]).unwrap();
+        let cl_value = CLValue::from_t(&vec![a, b]).unwrap();
         let cl_value_as_json: Value = cl_value_to_json(&cl_value).unwrap();
         let expected = json!([a_hex, b_hex]);
         assert_eq!(cl_value_as_json, expected);
@@ -162,7 +162,7 @@ mod tests {
         let a_hex = a.to_hex();
         let b_hex = b.to_hex();
         let c_hex = c.to_hex();
-        let cl_value = CLValue::from_t(vec![vec![a, b], vec![c]]).unwrap();
+        let cl_value = CLValue::from_t(&vec![vec![a, b], vec![c]]).unwrap();
         let cl_value_as_json: Value = cl_value_to_json(&cl_value).unwrap();
         let expected = json!([[a_hex, b_hex], [c_hex]]);
         assert_eq!(cl_value_as_json, expected);
@@ -177,7 +177,7 @@ mod tests {
         let mut map: BTreeMap<String, Vec<i32>> = BTreeMap::new();
         map.insert(key1.clone(), value1.clone());
         map.insert(key2.clone(), value2.clone());
-        let cl_value = CLValue::from_t(map).unwrap();
+        let cl_value = CLValue::from_t(&map).unwrap();
         let cl_value_as_json: Value = cl_value_to_json(&cl_value).unwrap();
         let expected = json!([
             { "key": key1, "value": value1 },
@@ -199,7 +199,7 @@ mod tests {
     #[test]
     fn bytes_to_json_value() {
         let bytes = [1_u8, 2];
-        let cl_value = CLValue::from_t(bytes).unwrap();
+        let cl_value = CLValue::from_t(&bytes).unwrap();
         let cl_value_as_json = cl_value_to_json(&cl_value).unwrap();
         let expected = json!(hex::encode(&bytes));
         assert_eq!(cl_value_as_json, expected);

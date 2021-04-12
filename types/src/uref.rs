@@ -211,19 +211,20 @@ impl Debug for URef {
 }
 
 impl bytesrepr::ToBytes for URef {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = bytesrepr::unchecked_allocate_buffer(self);
-        result.append(&mut self.0.to_bytes()?);
-        result.append(&mut self.1.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.0.to_bytes(sink)?;
+        self.1.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         UREF_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for URef {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (id, rem) = FromBytes::from_bytes(bytes)?;
         let (access_rights, rem) = FromBytes::from_bytes(rem)?;

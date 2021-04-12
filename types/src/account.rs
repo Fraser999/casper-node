@@ -186,16 +186,19 @@ impl Weight {
 }
 
 impl ToBytes for Weight {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        self.0.to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         WEIGHT_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for Weight {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (byte, rem) = u8::from_bytes(bytes)?;
         Ok((Weight::new(byte), rem))
@@ -378,8 +381,8 @@ impl CLTyped for AccountHash {
 
 impl ToBytes for AccountHash {
     #[inline(always)]
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        self.0.to_bytes()
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)
     }
 
     #[inline(always)]
@@ -389,6 +392,7 @@ impl ToBytes for AccountHash {
 }
 
 impl FromBytes for AccountHash {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (bytes, rem) = FromBytes::from_bytes(bytes)?;
         Ok((AccountHash::new(bytes), rem))

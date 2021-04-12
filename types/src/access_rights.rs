@@ -83,16 +83,19 @@ impl core::fmt::Display for AccessRights {
 }
 
 impl bytesrepr::ToBytes for AccessRights {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        self.bits.to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.bits.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         ACCESS_RIGHTS_SERIALIZED_LENGTH
     }
 }
 
 impl bytesrepr::FromBytes for AccessRights {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (id, rem) = u8::from_bytes(bytes)?;
         match AccessRights::from_bits(id) {

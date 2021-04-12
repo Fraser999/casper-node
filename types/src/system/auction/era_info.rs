@@ -77,30 +77,31 @@ impl SeigniorageAllocation {
 }
 
 impl ToBytes for SeigniorageAllocation {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut buffer = bytesrepr::allocate_buffer(self)?;
-        buffer.append(&mut self.tag().to_bytes()?);
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        sink.push(self.tag());
         match self {
             SeigniorageAllocation::Validator {
                 validator_public_key,
                 amount,
             } => {
-                buffer.append(&mut validator_public_key.to_bytes()?);
-                buffer.append(&mut amount.to_bytes()?);
+                validator_public_key.to_bytes(sink)?;
+                amount.to_bytes(sink)?;
             }
             SeigniorageAllocation::Delegator {
                 delegator_public_key,
                 validator_public_key,
                 amount,
             } => {
-                buffer.append(&mut delegator_public_key.to_bytes()?);
-                buffer.append(&mut validator_public_key.to_bytes()?);
-                buffer.append(&mut amount.to_bytes()?);
+                delegator_public_key.to_bytes(sink)?;
+                validator_public_key.to_bytes(sink)?;
+                amount.to_bytes(sink)?;
             }
         }
-        Ok(buffer)
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.tag().serialized_length()
             + match self {
@@ -122,6 +123,7 @@ impl ToBytes for SeigniorageAllocation {
 }
 
 impl FromBytes for SeigniorageAllocation {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (tag, rem) = <u8>::from_bytes(bytes)?;
         match tag {
@@ -207,16 +209,19 @@ impl EraInfo {
 }
 
 impl ToBytes for EraInfo {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        self.seigniorage_allocations.to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.seigniorage_allocations.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.seigniorage_allocations.serialized_length()
     }
 }
 
 impl FromBytes for EraInfo {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (seigniorage_allocations, rem) = Vec::<SeigniorageAllocation>::from_bytes(bytes)?;
         Ok((

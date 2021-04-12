@@ -66,11 +66,10 @@ impl Pointer {
 }
 
 impl ToBytes for Pointer {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut ret = bytesrepr::unchecked_allocate_buffer(self);
-        ret.push(self.tag());
-        ret.extend_from_slice(self.hash().as_ref());
-        Ok(ret)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        sink.push(self.tag());
+        self.hash().to_bytes(sink)
     }
 
     #[inline(always)]
@@ -80,6 +79,7 @@ impl ToBytes for Pointer {
 }
 
 impl FromBytes for Pointer {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (tag, rem) = u8::from_bytes(bytes)?;
         match tag {
@@ -210,20 +210,22 @@ impl Default for PointerBlock {
 }
 
 impl ToBytes for PointerBlock {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         for pointer in self.0.iter() {
-            result.append(&mut pointer.to_bytes()?);
+            pointer.to_bytes(sink)?;
         }
-        Ok(result)
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.iter().map(ToBytes::serialized_length).sum()
     }
 }
 
 impl FromBytes for PointerBlock {
+    #[inline(always)]
     fn from_bytes(mut bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let pointer_block_array = {
             // With MaybeUninit here we can avoid default initialization of result array below.
@@ -379,26 +381,24 @@ where
     K: ToBytes,
     V: ToBytes,
 {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut ret = bytesrepr::allocate_buffer(self)?;
-        ret.push(self.tag());
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        sink.push(self.tag());
 
         match self {
             Trie::Leaf { key, value } => {
-                ret.append(&mut key.to_bytes()?);
-                ret.append(&mut value.to_bytes()?);
+                key.to_bytes(sink)?;
+                value.to_bytes(sink)
             }
-            Trie::Node { pointer_block } => {
-                ret.append(&mut pointer_block.to_bytes()?);
-            }
+            Trie::Node { pointer_block } => pointer_block.to_bytes(sink),
             Trie::Extension { affix, pointer } => {
-                ret.append(&mut affix.to_bytes()?);
-                ret.append(&mut pointer.to_bytes()?);
+                affix.to_bytes(sink)?;
+                pointer.to_bytes(sink)
             }
         }
-        Ok(ret)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         U8_SERIALIZED_LENGTH
             + match self {
@@ -412,6 +412,7 @@ where
 }
 
 impl<K: FromBytes, V: FromBytes> FromBytes for Trie<K, V> {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (tag, rem) = u8::from_bytes(bytes)?;
         match tag {
@@ -451,7 +452,7 @@ pub(crate) mod operations {
         let root: Trie<K, V> = Trie::Node {
             pointer_block: Default::default(),
         };
-        let root_bytes: Vec<u8> = root.to_bytes()?;
+        let root_bytes = bytesrepr::serialize(&root)?;
         Ok((Blake2bHash::new(&root_bytes), root))
     }
 }

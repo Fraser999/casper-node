@@ -15,7 +15,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    bytesrepr::{self, FromBytes, ToBytes},
+    bytesrepr::{self, FromBytes, ToBytes, U8_SERIALIZED_LENGTH},
     Key, URef, U128, U256, U512,
 };
 
@@ -139,62 +139,100 @@ pub fn named_key_type() -> CLType {
     CLType::Tuple2([Box::new(CLType::String), Box::new(CLType::Key)])
 }
 
-impl CLType {
-    pub(crate) fn append_bytes(&self, stream: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+impl ToBytes for CLType {
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         match self {
-            CLType::Bool => stream.push(CL_TYPE_TAG_BOOL),
-            CLType::I32 => stream.push(CL_TYPE_TAG_I32),
-            CLType::I64 => stream.push(CL_TYPE_TAG_I64),
-            CLType::U8 => stream.push(CL_TYPE_TAG_U8),
-            CLType::U32 => stream.push(CL_TYPE_TAG_U32),
-            CLType::U64 => stream.push(CL_TYPE_TAG_U64),
-            CLType::U128 => stream.push(CL_TYPE_TAG_U128),
-            CLType::U256 => stream.push(CL_TYPE_TAG_U256),
-            CLType::U512 => stream.push(CL_TYPE_TAG_U512),
-            CLType::Unit => stream.push(CL_TYPE_TAG_UNIT),
-            CLType::String => stream.push(CL_TYPE_TAG_STRING),
-            CLType::Key => stream.push(CL_TYPE_TAG_KEY),
-            CLType::URef => stream.push(CL_TYPE_TAG_UREF),
-            CLType::PublicKey => stream.push(CL_TYPE_TAG_PUBLIC_KEY),
+            CLType::Bool => sink.push(CL_TYPE_TAG_BOOL),
+            CLType::I32 => sink.push(CL_TYPE_TAG_I32),
+            CLType::I64 => sink.push(CL_TYPE_TAG_I64),
+            CLType::U8 => sink.push(CL_TYPE_TAG_U8),
+            CLType::U32 => sink.push(CL_TYPE_TAG_U32),
+            CLType::U64 => sink.push(CL_TYPE_TAG_U64),
+            CLType::U128 => sink.push(CL_TYPE_TAG_U128),
+            CLType::U256 => sink.push(CL_TYPE_TAG_U256),
+            CLType::U512 => sink.push(CL_TYPE_TAG_U512),
+            CLType::Unit => sink.push(CL_TYPE_TAG_UNIT),
+            CLType::String => sink.push(CL_TYPE_TAG_STRING),
+            CLType::Key => sink.push(CL_TYPE_TAG_KEY),
+            CLType::URef => sink.push(CL_TYPE_TAG_UREF),
+            CLType::PublicKey => sink.push(CL_TYPE_TAG_PUBLIC_KEY),
             CLType::Option(cl_type) => {
-                stream.push(CL_TYPE_TAG_OPTION);
-                cl_type.append_bytes(stream)?;
+                sink.push(CL_TYPE_TAG_OPTION);
+                cl_type.to_bytes(sink)?;
             }
             CLType::List(cl_type) => {
-                stream.push(CL_TYPE_TAG_LIST);
-                cl_type.append_bytes(stream)?;
+                sink.push(CL_TYPE_TAG_LIST);
+                cl_type.to_bytes(sink)?;
             }
             CLType::ByteArray(len) => {
-                stream.push(CL_TYPE_TAG_BYTE_ARRAY);
-                stream.append(&mut len.to_bytes()?);
+                sink.push(CL_TYPE_TAG_BYTE_ARRAY);
+                len.to_bytes(sink)?;
             }
             CLType::Result { ok, err } => {
-                stream.push(CL_TYPE_TAG_RESULT);
-                ok.append_bytes(stream)?;
-                err.append_bytes(stream)?;
+                sink.push(CL_TYPE_TAG_RESULT);
+                ok.to_bytes(sink)?;
+                err.to_bytes(sink)?;
             }
             CLType::Map { key, value } => {
-                stream.push(CL_TYPE_TAG_MAP);
-                key.append_bytes(stream)?;
-                value.append_bytes(stream)?;
+                sink.push(CL_TYPE_TAG_MAP);
+                key.to_bytes(sink)?;
+                value.to_bytes(sink)?;
             }
             CLType::Tuple1(cl_type_array) => {
-                serialize_cl_tuple_type(CL_TYPE_TAG_TUPLE1, cl_type_array, stream)?
+                serialize_cl_tuple_type(CL_TYPE_TAG_TUPLE1, cl_type_array, sink)?
             }
             CLType::Tuple2(cl_type_array) => {
-                serialize_cl_tuple_type(CL_TYPE_TAG_TUPLE2, cl_type_array, stream)?
+                serialize_cl_tuple_type(CL_TYPE_TAG_TUPLE2, cl_type_array, sink)?
             }
             CLType::Tuple3(cl_type_array) => {
-                serialize_cl_tuple_type(CL_TYPE_TAG_TUPLE3, cl_type_array, stream)?
+                serialize_cl_tuple_type(CL_TYPE_TAG_TUPLE3, cl_type_array, sink)?
             }
-            CLType::Any => stream.push(CL_TYPE_TAG_ANY),
+            CLType::Any => sink.push(CL_TYPE_TAG_ANY),
         }
         Ok(())
+    }
+
+    #[inline(always)]
+    fn serialized_length(&self) -> usize {
+        U8_SERIALIZED_LENGTH
+            + match self {
+                CLType::Bool
+                | CLType::I32
+                | CLType::I64
+                | CLType::U8
+                | CLType::U32
+                | CLType::U64
+                | CLType::U128
+                | CLType::U256
+                | CLType::U512
+                | CLType::Unit
+                | CLType::String
+                | CLType::Key
+                | CLType::URef
+                | CLType::PublicKey
+                | CLType::Any => 0,
+                CLType::Option(cl_type) => cl_type.serialized_length(),
+                CLType::List(cl_type) => cl_type.serialized_length(),
+                CLType::ByteArray(len) => len.serialized_length(),
+                CLType::Result { ok, err } => ok.serialized_length() + err.serialized_length(),
+                CLType::Map { key, value } => key.serialized_length() + value.serialized_length(),
+                CLType::Tuple1(cl_type_array) => cl_type_array[0].serialized_length(),
+                CLType::Tuple2(cl_type_array) => {
+                    cl_type_array[0].serialized_length() + cl_type_array[1].serialized_length()
+                }
+                CLType::Tuple3(cl_type_array) => {
+                    cl_type_array[0].serialized_length()
+                        + cl_type_array[1].serialized_length()
+                        + cl_type_array[2].serialized_length()
+                }
+            }
     }
 }
 
 #[allow(clippy::cognitive_complexity)]
 impl FromBytes for CLType {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (tag, remainder) = u8::from_bytes(bytes)?;
         match tag {
@@ -279,18 +317,20 @@ impl FromBytes for CLType {
     }
 }
 
+#[inline(always)]
 fn serialize_cl_tuple_type<'a, T: IntoIterator<Item = &'a Box<CLType>>>(
     tag: u8,
     cl_type_array: T,
-    stream: &mut Vec<u8>,
+    sink: &mut Vec<u8>,
 ) -> Result<(), bytesrepr::Error> {
-    stream.push(tag);
+    sink.push(tag);
     for cl_type in cl_type_array {
-        cl_type.append_bytes(stream)?;
+        cl_type.to_bytes(sink)?;
     }
     Ok(())
 }
 
+#[inline(always)]
 fn parse_cl_tuple_types(
     count: usize,
     mut bytes: &[u8],
@@ -305,6 +345,7 @@ fn parse_cl_tuple_types(
     Ok((cl_types, bytes))
 }
 
+#[inline(always)]
 fn serialized_length_of_cl_tuple_type<'a, T: IntoIterator<Item = &'a Box<CLType>>>(
     cl_type_array: T,
 ) -> usize {
@@ -491,9 +532,9 @@ mod tests {
     };
 
     fn round_trip<T: CLTyped + FromBytes + ToBytes + PartialEq + Debug + Clone>(value: &T) {
-        let cl_value = CLValue::from_t(value.clone()).unwrap();
+        let cl_value = CLValue::from_t(value).unwrap();
 
-        let serialized_cl_value = cl_value.to_bytes().unwrap();
+        let serialized_cl_value = bytesrepr::serialize(&cl_value).unwrap();
         assert_eq!(serialized_cl_value.len(), cl_value.serialized_length());
         let parsed_cl_value: CLValue = bytesrepr::deserialize(serialized_cl_value).unwrap();
         assert_eq!(cl_value, parsed_cl_value);
@@ -621,9 +662,9 @@ mod tests {
                         tmp
                     };
 
-                    let cl_value = CLValue::from_t(array.clone()).unwrap();
+                    let cl_value = CLValue::from_t(&array).unwrap();
 
-                    let serialized_cl_value = cl_value.to_bytes().unwrap();
+                    let serialized_cl_value = bytesrepr::serialize(&cl_value).unwrap();
                     let parsed_cl_value: CLValue = bytesrepr::deserialize(serialized_cl_value).unwrap();
                     assert_eq!(cl_value, parsed_cl_value);
 
@@ -689,8 +730,8 @@ mod tests {
         }
 
         impl ToBytes for Any {
-            fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-                self.0.to_bytes()
+            fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+                self.0.to_bytes(sink)
             }
 
             fn serialized_length(&self) -> usize {

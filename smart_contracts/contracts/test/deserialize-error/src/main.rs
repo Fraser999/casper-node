@@ -7,8 +7,10 @@ use alloc::{vec, vec::Vec};
 
 use casper_contract::{self, contract_api::storage, unwrap_or_revert::UnwrapOrRevert};
 use casper_types::{
-    api_error, bytesrepr::ToBytes, contracts::Parameters, CLType, ContractHash, EntryPoint,
-    EntryPointAccess, EntryPointType, EntryPoints, RuntimeArgs,
+    api_error,
+    bytesrepr::{self, ToBytes},
+    contracts::Parameters,
+    CLType, ContractHash, EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, RuntimeArgs,
 };
 
 #[no_mangle]
@@ -19,7 +21,7 @@ pub extern "C" fn do_nothing() {
 
 // Attacker copied to_ptr from `alloc_utils` as it was private
 fn to_ptr<T: ToBytes>(t: T) -> (*const u8, usize, Vec<u8>) {
-    let bytes = t.into_bytes().unwrap_or_revert();
+    let bytes = bytesrepr::serialize(&t).unwrap_or_revert();
     let ptr = bytes.as_ptr();
     let size = bytes.len();
     (ptr, size, bytes)

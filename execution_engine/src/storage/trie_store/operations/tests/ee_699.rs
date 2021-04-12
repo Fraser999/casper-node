@@ -73,7 +73,7 @@ pub enum PublicKey {
 }
 
 impl ToBytes for PublicKey {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         let mut ret = bytesrepr::allocate_buffer(self)?;
         match self {
             PublicKey::Basic(key) => {
@@ -149,7 +149,7 @@ pub enum TestKey {
 }
 
 impl ToBytes for TestKey {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         let mut ret = Vec::with_capacity(self.serialized_length());
         match self {
             TestKey::Account(public_key) => {

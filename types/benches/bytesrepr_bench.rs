@@ -24,11 +24,11 @@ fn prepare_vector(size: usize) -> Vec<i32> {
 
 fn serialize_vector_of_i32s(b: &mut Bencher) {
     let data = prepare_vector(black_box(BATCH));
-    b.iter(|| data.to_bytes());
+    b.iter(|| bytesrepr::serialize(&data));
 }
 
 fn deserialize_vector_of_i32s(b: &mut Bencher) {
-    let data = prepare_vector(black_box(BATCH)).to_bytes().unwrap();
+    let data = bytesrepr::serialize(&prepare_vector(black_box(BATCH))).unwrap();
     b.iter(|| {
         let (res, _rem): (Vec<i32>, _) = FromBytes::from_bytes(&data).unwrap();
         res
@@ -41,22 +41,23 @@ fn serialize_vector_of_u8(b: &mut Bencher) {
         .into_iter()
         .map(|value| value as u8)
         .collect();
-    b.iter(|| ToBytes::to_bytes(black_box(&data)));
+    b.iter(|| bytesrepr::serialize(&*black_box(&data)).unwrap());
 }
 
 fn deserialize_vector_of_u8(b: &mut Bencher) {
     // 0, 1, ... 254, 255, 0, 1, ...
-    let data: Vec<u8> = prepare_vector(BATCH)
-        .into_iter()
-        .map(|value| value as u8)
-        .collect::<Bytes>()
-        .to_bytes()
-        .unwrap();
+    let data: Vec<u8> = bytesrepr::serialize(
+        &(prepare_vector(BATCH)
+            .into_iter()
+            .map(|value| value as u8)
+            .collect::<Bytes>()),
+    )
+    .unwrap();
     b.iter(|| Bytes::from_bytes(black_box(&data)))
 }
 
 fn serialize_u8(b: &mut Bencher) {
-    b.iter(|| ToBytes::to_bytes(black_box(&129u8)));
+    b.iter(|| bytesrepr::serialize(&*black_box(&129u8)));
 }
 
 fn deserialize_u8(b: &mut Bencher) {
@@ -64,7 +65,7 @@ fn deserialize_u8(b: &mut Bencher) {
 }
 
 fn serialize_i32(b: &mut Bencher) {
-    b.iter(|| ToBytes::to_bytes(black_box(&1_816_142_132i32)));
+    b.iter(|| bytesrepr::serialize(&*black_box(&1_816_142_132i32)));
 }
 
 fn deserialize_i32(b: &mut Bencher) {
@@ -72,7 +73,7 @@ fn deserialize_i32(b: &mut Bencher) {
 }
 
 fn serialize_u64(b: &mut Bencher) {
-    b.iter(|| ToBytes::to_bytes(black_box(&14_157_907_845_468_752_670u64)));
+    b.iter(|| bytesrepr::serialize(&*black_box(&14_157_907_845_468_752_670u64)));
 }
 
 fn deserialize_u64(b: &mut Bencher) {
@@ -82,12 +83,12 @@ fn deserialize_u64(b: &mut Bencher) {
 fn serialize_some_u64(b: &mut Bencher) {
     let data = Some(14_157_907_845_468_752_670u64);
 
-    b.iter(|| ToBytes::to_bytes(black_box(&data)));
+    b.iter(|| bytesrepr::serialize(&*black_box(&data)));
 }
 
 fn deserialize_some_u64(b: &mut Bencher) {
     let data = Some(14_157_907_845_468_752_670u64);
-    let data = data.to_bytes().unwrap();
+    let data = bytesrepr::serialize(&data).unwrap();
 
     b.iter(|| Option::<u64>::from_bytes(&data));
 }
@@ -95,12 +96,12 @@ fn deserialize_some_u64(b: &mut Bencher) {
 fn serialize_none_u64(b: &mut Bencher) {
     let data: Option<u64> = None;
 
-    b.iter(|| ToBytes::to_bytes(black_box(&data)));
+    b.iter(|| bytesrepr::serialize(&*black_box(&data)));
 }
 
 fn deserialize_ok_u64(b: &mut Bencher) {
     let data: Option<u64> = None;
-    let data = data.to_bytes().unwrap();
+    let data = bytesrepr::serialize(&data).unwrap();
     b.iter(|| Option::<u64>::from_bytes(&data));
 }
 
@@ -120,11 +121,11 @@ fn make_test_vec_of_vec8() -> Vec<Bytes> {
 
 fn serialize_vector_of_vector_of_u8(b: &mut Bencher) {
     let data = make_test_vec_of_vec8();
-    b.iter(|| data.to_bytes());
+    b.iter(|| bytesrepr::serialize(&data).unwrap());
 }
 
 fn deserialize_vector_of_vector_of_u8(b: &mut Bencher) {
-    let data = make_test_vec_of_vec8().to_bytes().unwrap();
+    let data = bytesrepr::serialize(&make_test_vec_of_vec8()).unwrap();
     b.iter(|| Vec::<Bytes>::from_bytes(black_box(&data)));
 }
 
@@ -137,7 +138,7 @@ fn serialize_tree_map(b: &mut Bencher) {
         res
     };
 
-    b.iter(|| ToBytes::to_bytes(black_box(&data)));
+    b.iter(|| bytesrepr::serialize(&*black_box(&data)));
 }
 
 fn deserialize_treemap(b: &mut Bencher) {
@@ -148,19 +149,19 @@ fn deserialize_treemap(b: &mut Bencher) {
         res.insert("1234".to_string(), "5678".to_string());
         res
     };
-    let data = data.to_bytes().unwrap();
+    let data = bytesrepr::serialize(&data).unwrap();
     b.iter(|| BTreeMap::<String, String>::from_bytes(black_box(&data)));
 }
 
 fn serialize_string(b: &mut Bencher) {
     let lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
     let data = lorem.to_string();
-    b.iter(|| ToBytes::to_bytes(black_box(&data)));
+    b.iter(|| bytesrepr::serialize(&*black_box(&data)));
 }
 
 fn deserialize_string(b: &mut Bencher) {
     let lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
-    let data = lorem.to_bytes().unwrap();
+    let data = bytesrepr::serialize(&lorem).unwrap();
     b.iter(|| String::from_bytes(&data));
 }
 
@@ -168,23 +169,23 @@ fn serialize_vec_of_string(b: &mut Bencher) {
     let lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.".to_string();
     let array_of_lorem: Vec<String> = lorem.split(' ').map(Into::into).collect();
     let data = array_of_lorem;
-    b.iter(|| ToBytes::to_bytes(black_box(&data)));
+    b.iter(|| bytesrepr::serialize(&*black_box(&data)));
 }
 
 fn deserialize_vec_of_string(b: &mut Bencher) {
     let lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.".to_string();
     let array_of_lorem: Vec<String> = lorem.split(' ').map(Into::into).collect();
-    let data = array_of_lorem.to_bytes().unwrap();
+    let data = bytesrepr::serialize(&array_of_lorem).unwrap();
 
     b.iter(|| Vec::<String>::from_bytes(&data));
 }
 
 fn serialize_unit(b: &mut Bencher) {
-    b.iter(|| ToBytes::to_bytes(black_box(&())))
+    b.iter(|| bytesrepr::serialize(&*black_box(&())))
 }
 
 fn deserialize_unit(b: &mut Bencher) {
-    let data = ().to_bytes().unwrap();
+    let data = bytesrepr::serialize(&()).unwrap();
 
     b.iter(|| <()>::from_bytes(&data))
 }
@@ -192,36 +193,36 @@ fn deserialize_unit(b: &mut Bencher) {
 fn serialize_key_account(b: &mut Bencher) {
     let account = Key::Account(AccountHash::new([0u8; 32]));
 
-    b.iter(|| ToBytes::to_bytes(black_box(&account)))
+    b.iter(|| bytesrepr::serialize(&*black_box(&account)))
 }
 
 fn deserialize_key_account(b: &mut Bencher) {
     let account = Key::Account(AccountHash::new([0u8; 32]));
-    let account_bytes = account.to_bytes().unwrap();
+    let account_bytes = bytesrepr::serialize(&account).unwrap();
 
     b.iter(|| Key::from_bytes(black_box(&account_bytes)))
 }
 
 fn serialize_key_hash(b: &mut Bencher) {
     let hash = Key::Hash([0u8; 32]);
-    b.iter(|| ToBytes::to_bytes(black_box(&hash)))
+    b.iter(|| bytesrepr::serialize(&*black_box(&hash)))
 }
 
 fn deserialize_key_hash(b: &mut Bencher) {
     let hash = Key::Hash([0u8; 32]);
-    let hash_bytes = hash.to_bytes().unwrap();
+    let hash_bytes = bytesrepr::serialize(&hash).unwrap();
 
     b.iter(|| Key::from_bytes(black_box(&hash_bytes)))
 }
 
 fn serialize_key_uref(b: &mut Bencher) {
     let uref = Key::URef(URef::new([0u8; 32], AccessRights::ADD_WRITE));
-    b.iter(|| ToBytes::to_bytes(black_box(&uref)))
+    b.iter(|| bytesrepr::serialize(&*black_box(&uref)))
 }
 
 fn deserialize_key_uref(b: &mut Bencher) {
     let uref = Key::URef(URef::new([0u8; 32], AccessRights::ADD_WRITE));
-    let uref_bytes = uref.to_bytes().unwrap();
+    let uref_bytes = bytesrepr::serialize(&uref).unwrap();
 
     b.iter(|| Key::from_bytes(black_box(&uref_bytes)))
 }
@@ -230,75 +231,73 @@ fn serialize_vec_of_keys(b: &mut Bencher) {
     let keys: Vec<Key> = (0..32)
         .map(|i| Key::URef(URef::new([i; 32], AccessRights::ADD_WRITE)))
         .collect();
-    b.iter(|| ToBytes::to_bytes(black_box(&keys)))
+    b.iter(|| bytesrepr::serialize(&*black_box(&keys)))
 }
 
 fn deserialize_vec_of_keys(b: &mut Bencher) {
     let keys: Vec<Key> = (0..32)
         .map(|i| Key::URef(URef::new([i; 32], AccessRights::ADD_WRITE)))
         .collect();
-    let keys_bytes = keys.to_bytes().unwrap();
+    let keys_bytes = bytesrepr::serialize(&keys).unwrap();
     b.iter(|| Vec::<Key>::from_bytes(black_box(&keys_bytes)));
 }
 
 fn serialize_access_rights_read(b: &mut Bencher) {
-    b.iter(|| AccessRights::READ.to_bytes());
+    b.iter(|| bytesrepr::serialize(&AccessRights::READ));
 }
 
 fn deserialize_access_rights_read(b: &mut Bencher) {
-    let data = AccessRights::READ.to_bytes().unwrap();
+    let data = bytesrepr::serialize(&AccessRights::READ).unwrap();
     b.iter(|| AccessRights::from_bytes(&data));
 }
 
 fn serialize_access_rights_write(b: &mut Bencher) {
-    b.iter(|| AccessRights::WRITE.to_bytes());
+    b.iter(|| bytesrepr::serialize(&AccessRights::WRITE));
 }
 
 fn deserialize_access_rights_write(b: &mut Bencher) {
-    let data = AccessRights::WRITE.to_bytes().unwrap();
+    let data = bytesrepr::serialize(&AccessRights::WRITE).unwrap();
     b.iter(|| AccessRights::from_bytes(&data));
 }
 
 fn serialize_access_rights_add(b: &mut Bencher) {
-    b.iter(|| AccessRights::ADD.to_bytes());
+    b.iter(|| bytesrepr::serialize(&AccessRights::ADD));
 }
 
 fn deserialize_access_rights_add(b: &mut Bencher) {
-    let data = AccessRights::ADD.to_bytes().unwrap();
+    let data = bytesrepr::serialize(&AccessRights::ADD).unwrap();
     b.iter(|| AccessRights::from_bytes(&data));
 }
 
 fn serialize_access_rights_read_add(b: &mut Bencher) {
-    b.iter(|| AccessRights::READ_ADD.to_bytes());
+    b.iter(|| bytesrepr::serialize(&AccessRights::READ_ADD));
 }
 
 fn deserialize_access_rights_read_add(b: &mut Bencher) {
-    let data = AccessRights::READ_ADD.to_bytes().unwrap();
+    let data = bytesrepr::serialize(&AccessRights::READ_ADD).unwrap();
     b.iter(|| AccessRights::from_bytes(&data));
 }
 
 fn serialize_access_rights_read_write(b: &mut Bencher) {
-    b.iter(|| AccessRights::READ_WRITE.to_bytes());
+    b.iter(|| bytesrepr::serialize(&AccessRights::READ_WRITE));
 }
 
 fn deserialize_access_rights_read_write(b: &mut Bencher) {
-    let data = AccessRights::READ_WRITE.to_bytes().unwrap();
+    let data = bytesrepr::serialize(&AccessRights::READ_WRITE).unwrap();
     b.iter(|| AccessRights::from_bytes(&data));
 }
 
 fn serialize_access_rights_add_write(b: &mut Bencher) {
-    b.iter(|| AccessRights::ADD_WRITE.to_bytes());
+    b.iter(|| bytesrepr::serialize(&AccessRights::ADD_WRITE));
 }
 
 fn deserialize_access_rights_add_write(b: &mut Bencher) {
-    let data = AccessRights::ADD_WRITE.to_bytes().unwrap();
+    let data = bytesrepr::serialize(&AccessRights::ADD_WRITE).unwrap();
     b.iter(|| AccessRights::from_bytes(&data));
 }
 
 fn serialize_cl_value<T: CLTyped + ToBytes>(raw_value: T) -> Vec<u8> {
-    CLValue::from_t(raw_value)
-        .expect("should create CLValue")
-        .to_bytes()
+    bytesrepr::serialize(&CLValue::from_t(&raw_value).expect("should create CLValue"))
         .expect("should serialize CLValue")
 }
 
@@ -403,36 +402,36 @@ fn deserialize_cl_value_namedkey(b: &mut Bencher) {
 
 fn serialize_u128(b: &mut Bencher) {
     let num_u128 = U128::default();
-    b.iter(|| ToBytes::to_bytes(black_box(&num_u128)))
+    b.iter(|| bytesrepr::serialize(&*black_box(&num_u128)))
 }
 
 fn deserialize_u128(b: &mut Bencher) {
     let num_u128 = U128::default();
-    let num_u128_bytes = num_u128.to_bytes().unwrap();
+    let num_u128_bytes = bytesrepr::serialize(&num_u128).unwrap();
 
     b.iter(|| U128::from_bytes(black_box(&num_u128_bytes)))
 }
 
 fn serialize_u256(b: &mut Bencher) {
     let num_u256 = U256::default();
-    b.iter(|| ToBytes::to_bytes(black_box(&num_u256)))
+    b.iter(|| bytesrepr::serialize(&*black_box(&num_u256)))
 }
 
 fn deserialize_u256(b: &mut Bencher) {
     let num_u256 = U256::default();
-    let num_u256_bytes = num_u256.to_bytes().unwrap();
+    let num_u256_bytes = bytesrepr::serialize(&num_u256).unwrap();
 
     b.iter(|| U256::from_bytes(black_box(&num_u256_bytes)))
 }
 
 fn serialize_u512(b: &mut Bencher) {
     let num_u512 = U512::default();
-    b.iter(|| ToBytes::to_bytes(black_box(&num_u512)))
+    b.iter(|| bytesrepr::serialize(&*black_box(&num_u512)))
 }
 
 fn deserialize_u512(b: &mut Bencher) {
     let num_u512 = U512::default();
-    let num_u512_bytes = num_u512.to_bytes().unwrap();
+    let num_u512_bytes = bytesrepr::serialize(&num_u512).unwrap();
 
     b.iter(|| U512::from_bytes(black_box(&num_u512_bytes)))
 }

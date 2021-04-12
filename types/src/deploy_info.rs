@@ -50,7 +50,28 @@ impl DeployInfo {
     }
 }
 
+impl ToBytes for DeployInfo {
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.deploy_hash.to_bytes(sink)?;
+        self.transfers.to_bytes(sink)?;
+        self.from.to_bytes(sink)?;
+        self.source.to_bytes(sink)?;
+        self.gas.to_bytes(sink)
+    }
+
+    #[inline(always)]
+    fn serialized_length(&self) -> usize {
+        self.deploy_hash.serialized_length()
+            + self.transfers.serialized_length()
+            + self.from.serialized_length()
+            + self.source.serialized_length()
+            + self.gas.serialized_length()
+    }
+}
+
 impl FromBytes for DeployInfo {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (deploy_hash, rem) = DeployHash::from_bytes(bytes)?;
         let (transfers, rem) = Vec::<TransferAddr>::from_bytes(rem)?;
@@ -67,26 +88,6 @@ impl FromBytes for DeployInfo {
             },
             rem,
         ))
-    }
-}
-
-impl ToBytes for DeployInfo {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
-        result.append(&mut self.deploy_hash.to_bytes()?);
-        result.append(&mut self.transfers.to_bytes()?);
-        result.append(&mut self.from.to_bytes()?);
-        result.append(&mut self.source.to_bytes()?);
-        result.append(&mut self.gas.to_bytes()?);
-        Ok(result)
-    }
-
-    fn serialized_length(&self) -> usize {
-        self.deploy_hash.serialized_length()
-            + self.transfers.serialized_length()
-            + self.from.serialized_length()
-            + self.source.serialized_length()
-            + self.gas.serialized_length()
     }
 }
 

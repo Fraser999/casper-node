@@ -29,16 +29,19 @@ impl Into<u64> for BlockTime {
 }
 
 impl ToBytes for BlockTime {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        self.0.to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         BLOCKTIME_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for BlockTime {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (time, rem) = FromBytes::from_bytes(bytes)?;
         Ok((BlockTime::new(time), rem))

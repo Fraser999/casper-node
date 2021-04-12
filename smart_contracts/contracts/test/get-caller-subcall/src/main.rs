@@ -22,7 +22,7 @@ const ARG_ACCOUNT: &str = "account";
 #[no_mangle]
 pub extern "C" fn get_caller_ext() {
     let caller_account_hash: AccountHash = runtime::get_caller();
-    runtime::ret(CLValue::from_t(caller_account_hash).unwrap_or_revert());
+    runtime::ret(CLValue::from_t(&caller_account_hash).unwrap_or_revert());
 }
 
 #[no_mangle]

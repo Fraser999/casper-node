@@ -87,7 +87,7 @@ impl HighwayConfig {
 }
 
 impl ToBytes for HighwayConfig {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         let mut buffer = bytesrepr::allocate_buffer(self)?;
         buffer.extend(self.finality_threshold_fraction.to_bytes()?);
         buffer.extend(self.minimum_round_exponent.to_bytes()?);

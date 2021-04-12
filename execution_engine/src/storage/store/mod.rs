@@ -22,7 +22,7 @@ pub trait Store<K, V> {
         Self::Error: From<T::Error>,
     {
         let handle = self.handle();
-        match txn.read(handle, &key.to_bytes()?)? {
+        match txn.read(handle, &bytesrepr::serialize(key)?)? {
             None => Ok(None),
             Some(value_bytes) => {
                 let value = bytesrepr::deserialize(value_bytes.into())?;
@@ -39,7 +39,11 @@ pub trait Store<K, V> {
         Self::Error: From<T::Error>,
     {
         let handle = self.handle();
-        txn.write(handle, &key.to_bytes()?, &value.to_bytes()?)
-            .map_err(Into::into)
+        txn.write(
+            handle,
+            &bytesrepr::serialize(key)?,
+            &bytesrepr::serialize(value)?,
+        )
+        .map_err(Into::into)
     }
 }

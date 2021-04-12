@@ -22,7 +22,7 @@ fn make_payment_error_effects(
 
     let new_balance = account_main_purse_balance - max_payment_cost;
     // from_t for U512 is assumed to never panic
-    let new_balance_clvalue = CLValue::from_t(new_balance.value())?;
+    let new_balance_clvalue = CLValue::from_t(&new_balance.value())?;
     let new_balance_value = StoredValue::CLValue(new_balance_clvalue);
 
     let account_main_purse_balance_normalize = account_main_purse_balance_key.normalize();

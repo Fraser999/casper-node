@@ -84,15 +84,16 @@ impl UnbondingPurse {
 }
 
 impl ToBytes for UnbondingPurse {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
-        result.extend(&self.bonding_purse.to_bytes()?);
-        result.extend(&self.validator_public_key.to_bytes()?);
-        result.extend(&self.unbonder_public_key.to_bytes()?);
-        result.extend(&self.era_of_creation.to_bytes()?);
-        result.extend(&self.amount.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.bonding_purse.to_bytes(sink)?;
+        self.validator_public_key.to_bytes(sink)?;
+        self.unbonder_public_key.to_bytes(sink)?;
+        self.era_of_creation.to_bytes(sink)?;
+        self.amount.to_bytes(sink)
     }
+
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.bonding_purse.serialized_length()
             + self.validator_public_key.serialized_length()
@@ -103,6 +104,7 @@ impl ToBytes for UnbondingPurse {
 }
 
 impl FromBytes for UnbondingPurse {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (bonding_purse, bytes) = FromBytes::from_bytes(bytes)?;
         let (validator_public_key, bytes) = FromBytes::from_bytes(bytes)?;

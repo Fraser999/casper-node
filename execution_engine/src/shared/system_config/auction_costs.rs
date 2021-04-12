@@ -1,7 +1,8 @@
-use casper_types::bytesrepr::{self, FromBytes, ToBytes};
 use datasize::DataSize;
 use rand::{distributions::Standard, prelude::*, Rng};
 use serde::{Deserialize, Serialize};
+
+use casper_types::bytesrepr::{self, FromBytes, ToBytes};
 
 pub const DEFAULT_GET_ERA_VALIDATORS_COST: u32 = 10_000;
 pub const DEFAULT_READ_SEIGNIORAGE_RECIPIENTS_COST: u32 = 10_000;
@@ -56,26 +57,24 @@ impl Default for AuctionCosts {
 }
 
 impl ToBytes for AuctionCosts {
-    fn to_bytes(&self) -> Result<Vec<u8>, casper_types::bytesrepr::Error> {
-        let mut ret = bytesrepr::unchecked_allocate_buffer(self);
-
-        ret.append(&mut self.get_era_validators.to_bytes()?);
-        ret.append(&mut self.read_seigniorage_recipients.to_bytes()?);
-        ret.append(&mut self.add_bid.to_bytes()?);
-        ret.append(&mut self.withdraw_bid.to_bytes()?);
-        ret.append(&mut self.delegate.to_bytes()?);
-        ret.append(&mut self.undelegate.to_bytes()?);
-        ret.append(&mut self.run_auction.to_bytes()?);
-        ret.append(&mut self.slash.to_bytes()?);
-        ret.append(&mut self.distribute.to_bytes()?);
-        ret.append(&mut self.withdraw_delegator_reward.to_bytes()?);
-        ret.append(&mut self.withdraw_validator_reward.to_bytes()?);
-        ret.append(&mut self.read_era_id.to_bytes()?);
-        ret.append(&mut self.activate_bid.to_bytes()?);
-
-        Ok(ret)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.get_era_validators.to_bytes(sink)?;
+        self.read_seigniorage_recipients.to_bytes(sink)?;
+        self.add_bid.to_bytes(sink)?;
+        self.withdraw_bid.to_bytes(sink)?;
+        self.delegate.to_bytes(sink)?;
+        self.undelegate.to_bytes(sink)?;
+        self.run_auction.to_bytes(sink)?;
+        self.slash.to_bytes(sink)?;
+        self.distribute.to_bytes(sink)?;
+        self.withdraw_delegator_reward.to_bytes(sink)?;
+        self.withdraw_validator_reward.to_bytes(sink)?;
+        self.read_era_id.to_bytes(sink)?;
+        self.activate_bid.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.get_era_validators.serialized_length()
             + self.read_seigniorage_recipients.serialized_length()
@@ -94,6 +93,7 @@ impl ToBytes for AuctionCosts {
 }
 
 impl FromBytes for AuctionCosts {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), casper_types::bytesrepr::Error> {
         let (get_era_validators, rem) = FromBytes::from_bytes(bytes)?;
         let (read_seigniorage_recipients, rem) = FromBytes::from_bytes(rem)?;

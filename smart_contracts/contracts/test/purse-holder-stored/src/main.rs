@@ -38,7 +38,7 @@ pub extern "C" fn add_named_purse() {
 
 #[no_mangle]
 pub extern "C" fn version() {
-    let ret = CLValue::from_t(VERSION).unwrap_or_revert();
+    let ret = CLValue::from_t(&VERSION).unwrap_or_revert();
     runtime::ret(ret);
 }
 

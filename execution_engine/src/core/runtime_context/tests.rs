@@ -203,7 +203,7 @@ fn use_uref_valid() {
     let access_rights = extract_access_rights_from_keys(vec![uref]);
     // Use uref as the key to perform an action on the global state.
     // This should succeed because the uref is valid.
-    let value = StoredValue::CLValue(CLValue::from_t(43_i32).unwrap());
+    let value = StoredValue::CLValue(CLValue::from_t(&43_i32).unwrap());
     let query_result = test(access_rights, |mut rc| rc.metered_write_gs(uref, value));
     query_result.expect("writing using valid uref should succeed");
 }
@@ -214,7 +214,7 @@ fn use_uref_forged() {
     let mut rng = AddressGenerator::new(&DEPLOY_HASH, PHASE);
     let uref = create_uref(&mut rng, AccessRights::READ_WRITE);
     let access_rights = HashMap::new();
-    let value = StoredValue::CLValue(CLValue::from_t(43_i32).unwrap());
+    let value = StoredValue::CLValue(CLValue::from_t(&43_i32).unwrap());
     let query_result = test(access_rights, |mut rc| rc.metered_write_gs(uref, value));
 
     assert_forged_reference(query_result);
@@ -227,7 +227,7 @@ fn account_key_not_writeable() {
     let query_result = test(HashMap::new(), |mut rc| {
         rc.metered_write_gs(
             acc_key,
-            StoredValue::CLValue(CLValue::from_t(1_i32).unwrap()),
+            StoredValue::CLValue(CLValue::from_t(&1_i32).unwrap()),
         )
     });
     assert_invalid_access(query_result, AccessRights::WRITE);
@@ -273,7 +273,7 @@ fn account_key_addable_valid() {
     let query_result = test(access_rights, |mut rc| {
         let base_key = rc.base_key();
         let uref_name = "NewURef".to_owned();
-        let named_key = StoredValue::CLValue(CLValue::from_t((uref_name.clone(), uref)).unwrap());
+        let named_key = StoredValue::CLValue(CLValue::from_t(&(uref_name.clone(), uref)).unwrap());
 
         rc.metered_add_gs(base_key, named_key)
             .expect("Adding should work.");
@@ -301,7 +301,7 @@ fn account_key_addable_invalid() {
     let query_result = test(HashMap::new(), |mut rc| {
         rc.metered_add_gs(
             other_acc_key,
-            StoredValue::CLValue(CLValue::from_t(1_i32).unwrap()),
+            StoredValue::CLValue(CLValue::from_t(&1_i32).unwrap()),
         )
     });
 
@@ -328,7 +328,7 @@ fn contract_key_not_writeable() {
     let query_result = test(HashMap::new(), |mut rc| {
         rc.metered_write_gs(
             contract_key,
-            StoredValue::CLValue(CLValue::from_t(1_i32).unwrap()),
+            StoredValue::CLValue(CLValue::from_t(&1_i32).unwrap()),
         )
     });
 
@@ -359,7 +359,7 @@ fn contract_key_addable_valid() {
     let uref = create_uref(&mut uref_address_generator, AccessRights::WRITE);
     let uref_name = "NewURef".to_owned();
     let named_uref_tuple =
-        StoredValue::CLValue(CLValue::from_t((uref_name.clone(), uref)).unwrap());
+        StoredValue::CLValue(CLValue::from_t(&(uref_name.clone(), uref)).unwrap());
 
     let access_rights = extract_access_rights_from_keys(vec![uref]);
 
@@ -433,7 +433,7 @@ fn contract_key_addable_invalid() {
 
     let uref = create_uref(&mut uref_address_generator, AccessRights::WRITE);
     let uref_name = "NewURef".to_owned();
-    let named_uref_tuple = StoredValue::CLValue(CLValue::from_t((uref_name, uref)).unwrap());
+    let named_uref_tuple = StoredValue::CLValue(CLValue::from_t(&(uref_name, uref)).unwrap());
 
     let access_rights = extract_access_rights_from_keys(vec![uref]);
     let mut runtime_context = RuntimeContext::new(
@@ -490,7 +490,7 @@ fn uref_key_writeable_valid() {
     let query_result = test(access_rights, |mut rc| {
         rc.metered_write_gs(
             uref_key,
-            StoredValue::CLValue(CLValue::from_t(1_i32).unwrap()),
+            StoredValue::CLValue(CLValue::from_t(&1_i32).unwrap()),
         )
     });
     assert!(query_result.is_ok());
@@ -504,7 +504,7 @@ fn uref_key_writeable_invalid() {
     let query_result = test(access_rights, |mut rc| {
         rc.metered_write_gs(
             uref_key,
-            StoredValue::CLValue(CLValue::from_t(1_i32).unwrap()),
+            StoredValue::CLValue(CLValue::from_t(&1_i32).unwrap()),
         )
     });
     assert_invalid_access(query_result, AccessRights::WRITE);
@@ -516,9 +516,9 @@ fn uref_key_addable_valid() {
     let uref_key = create_uref(&mut rng, AccessRights::ADD_WRITE);
     let access_rights = extract_access_rights_from_keys(vec![uref_key]);
     let query_result = test(access_rights, |mut rc| {
-        rc.metered_write_gs(uref_key, CLValue::from_t(10_i32).unwrap())
+        rc.metered_write_gs(uref_key, CLValue::from_t(&10_i32).unwrap())
             .expect("Writing to the GlobalState should work.");
-        rc.metered_add_gs(uref_key, CLValue::from_t(1_i32).unwrap())
+        rc.metered_add_gs(uref_key, CLValue::from_t(&1_i32).unwrap())
     });
     assert!(query_result.is_ok());
 }
@@ -531,7 +531,7 @@ fn uref_key_addable_invalid() {
     let query_result = test(access_rights, |mut rc| {
         rc.metered_add_gs(
             uref_key,
-            StoredValue::CLValue(CLValue::from_t(1_i32).unwrap()),
+            StoredValue::CLValue(CLValue::from_t(&1_i32).unwrap()),
         )
     });
     assert_invalid_access(query_result, AccessRights::ADD);
@@ -763,7 +763,7 @@ fn can_roundtrip_key_value_pairs() {
             .as_uref()
             .cloned()
             .unwrap();
-        let test_value = CLValue::from_t("test_value".to_string()).unwrap();
+        let test_value = CLValue::from_t(&"test_value".to_string()).unwrap();
 
         runtime_context
             .write_purse_uref(test_uref.to_owned(), test_value.clone())
@@ -864,7 +864,7 @@ fn should_meter_for_gas_storage_write() {
     let mut rng = AddressGenerator::new(&DEPLOY_HASH, PHASE);
     let uref = create_uref(&mut rng, AccessRights::READ_WRITE);
     let access_rights = extract_access_rights_from_keys(vec![uref]);
-    let value = StoredValue::CLValue(CLValue::from_t(43_i32).unwrap());
+    let value = StoredValue::CLValue(CLValue::from_t(&43_i32).unwrap());
     let expected_write_cost = TEST_PROTOCOL_DATA
         .wasm_config()
         .storage_costs()
@@ -894,7 +894,7 @@ fn should_meter_for_gas_storage_add() {
     let mut rng = AddressGenerator::new(&DEPLOY_HASH, PHASE);
     let uref = create_uref(&mut rng, AccessRights::ADD_WRITE);
     let access_rights = extract_access_rights_from_keys(vec![uref]);
-    let value = StoredValue::CLValue(CLValue::from_t(43_i32).unwrap());
+    let value = StoredValue::CLValue(CLValue::from_t(&43_i32).unwrap());
     let expected_add_cost = TEST_PROTOCOL_DATA
         .wasm_config()
         .storage_costs()

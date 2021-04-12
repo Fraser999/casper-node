@@ -416,19 +416,20 @@ impl PaddedEraId {
 }
 
 impl ToBytes for PaddedEraId {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut buff = Vec::new();
-        buff.extend_from_slice(&[0u8; Self::ZEROES_LENGTH]);
-        buff.extend_from_slice(&self.0.to_le_bytes());
-        Ok(buff)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        sink.extend_from_slice(&[0u8; Self::ZEROES_LENGTH]);
+        self.0.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         Self::SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for PaddedEraId {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let mut le_bytes = [0u8; Self::U64_LE_BYTES_LENGTH];
         let (bytes, remainder) = bytesrepr::safe_split_at(bytes, Self::SERIALIZED_LENGTH)?;
@@ -438,44 +439,24 @@ impl FromBytes for PaddedEraId {
 }
 
 impl ToBytes for Key {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = bytesrepr::unchecked_allocate_buffer(self);
-        result.push(self.tag());
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        sink.push(self.tag());
         match self {
-            Key::Account(account_hash) => {
-                result.append(&mut account_hash.to_bytes()?);
-            }
-            Key::Hash(hash) => {
-                result.append(&mut hash.to_bytes()?);
-            }
-            Key::URef(uref) => {
-                result.append(&mut uref.to_bytes()?);
-            }
-            Key::Transfer(addr) => {
-                result.append(&mut addr.to_bytes()?);
-            }
-            Key::DeployInfo(addr) => {
-                result.append(&mut addr.to_bytes()?);
-            }
-            Key::EraInfo(era_id) => {
-                result.append(&mut PaddedEraId(*era_id).to_bytes()?);
-            }
-            Key::Balance(uref_addr) => {
-                result.append(&mut uref_addr.to_bytes()?);
-            }
-            Key::Bid(account_hash) => {
-                result.append(&mut account_hash.to_bytes()?);
-            }
-            Key::Withdraw(account_hash) => {
-                result.append(&mut account_hash.to_bytes()?);
-            }
-            Key::EraValidators(era_id) => {
-                result.append(&mut PaddedEraId(*era_id).to_bytes()?);
-            }
+            Key::Account(account_hash) => account_hash.to_bytes(sink),
+            Key::Hash(hash) => hash.to_bytes(sink),
+            Key::URef(uref) => uref.to_bytes(sink),
+            Key::Transfer(addr) => addr.to_bytes(sink),
+            Key::DeployInfo(addr) => addr.to_bytes(sink),
+            Key::EraInfo(era_id) => PaddedEraId(*era_id).to_bytes(sink),
+            Key::Balance(uref_addr) => uref_addr.to_bytes(sink),
+            Key::Bid(account_hash) => account_hash.to_bytes(sink),
+            Key::Withdraw(account_hash) => account_hash.to_bytes(sink),
+            Key::EraValidators(era_id) => PaddedEraId(*era_id).to_bytes(sink),
         }
-        Ok(result)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         match self {
             Key::Account(account_hash) => {
@@ -495,6 +476,7 @@ impl ToBytes for Key {
 }
 
 impl FromBytes for Key {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (tag, remainder) = u8::from_bytes(bytes)?;
         match tag {

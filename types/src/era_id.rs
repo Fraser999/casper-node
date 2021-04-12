@@ -158,16 +158,19 @@ impl From<u64> for EraId {
 }
 
 impl ToBytes for EraId {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        self.0.to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.0.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length()
     }
 }
 
 impl FromBytes for EraId {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (id_value, remainder) = u64::from_bytes(bytes)?;
         let era_id = EraId::from(id_value);

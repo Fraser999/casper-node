@@ -86,20 +86,22 @@ impl VestingSchedule {
 }
 
 impl ToBytes for [U512; LOCKED_AMOUNTS_LENGTH] {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         for item in self.iter() {
-            result.append(&mut item.to_bytes()?);
+            item.to_bytes(sink)?;
         }
-        Ok(result)
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.iter().map(ToBytes::serialized_length).sum::<usize>()
     }
 }
 
 impl FromBytes for [U512; LOCKED_AMOUNTS_LENGTH] {
+    #[inline(always)]
     fn from_bytes(mut bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let mut result: MaybeUninit<[U512; LOCKED_AMOUNTS_LENGTH]> = MaybeUninit::uninit();
         let result_ptr = result.as_mut_ptr() as *mut U512;
@@ -121,13 +123,13 @@ impl FromBytes for [U512; LOCKED_AMOUNTS_LENGTH] {
 }
 
 impl ToBytes for VestingSchedule {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
-        result.append(&mut self.initial_release_timestamp_millis.to_bytes()?);
-        result.append(&mut self.locked_amounts.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.initial_release_timestamp_millis.to_bytes(sink)?;
+        self.locked_amounts.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.initial_release_timestamp_millis.serialized_length()
             + self.locked_amounts.serialized_length()
@@ -135,6 +137,7 @@ impl ToBytes for VestingSchedule {
 }
 
 impl FromBytes for VestingSchedule {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (initial_release_timestamp_millis, bytes) = FromBytes::from_bytes(bytes)?;
         let (locked_amounts, bytes) = FromBytes::from_bytes(bytes)?;

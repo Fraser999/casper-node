@@ -27,12 +27,12 @@ enum CustomError {
 #[no_mangle]
 pub extern "C" fn get_phase_ext() {
     let phase = runtime::get_phase();
-    runtime::ret(CLValue::from_t(phase).unwrap_or_revert())
+    runtime::ret(CLValue::from_t(&phase).unwrap_or_revert())
 }
 
 #[no_mangle]
 pub extern "C" fn noop_ext() {
-    runtime::ret(CLValue::from_t(()).unwrap_or_revert())
+    runtime::ret(CLValue::from_t(&()).unwrap_or_revert())
 }
 
 fn store() -> (ContractHash, ContractVersion) {

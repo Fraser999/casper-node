@@ -59,14 +59,14 @@ impl CLTyped for SeigniorageRecipient {
 }
 
 impl ToBytes for SeigniorageRecipient {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
-        result.extend(self.stake.to_bytes()?);
-        result.extend(self.delegation_rate.to_bytes()?);
-        result.extend(self.delegator_stake.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.stake.to_bytes(sink)?;
+        self.delegation_rate.to_bytes(sink)?;
+        self.delegator_stake.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.stake.serialized_length()
             + self.delegation_rate.serialized_length()
@@ -75,6 +75,7 @@ impl ToBytes for SeigniorageRecipient {
 }
 
 impl FromBytes for SeigniorageRecipient {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (stake, bytes) = FromBytes::from_bytes(bytes)?;
         let (delegation_rate, bytes) = FromBytes::from_bytes(bytes)?;

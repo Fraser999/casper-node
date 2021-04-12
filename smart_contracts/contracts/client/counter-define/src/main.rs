@@ -43,7 +43,7 @@ pub extern "C" fn counter() {
         METHOD_INC => storage::add(uref, 1),
         METHOD_GET => {
             let result: i32 = storage::read_or_revert(uref);
-            let return_value = CLValue::from_t(result).unwrap_or_revert();
+            let return_value = CLValue::from_t(&result).unwrap_or_revert();
             runtime::ret(return_value);
         }
         _ => runtime::revert(ApiError::InvalidArgument),

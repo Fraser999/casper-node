@@ -39,16 +39,19 @@ const TEST_KEY_LENGTH: usize = 7;
 struct TestKey([u8; TEST_KEY_LENGTH]);
 
 impl ToBytes for TestKey {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        Ok(self.0.to_vec())
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.0.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         TEST_KEY_LENGTH
     }
 }
 
 impl FromBytes for TestKey {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (key, rem) = bytes.split_at(TEST_KEY_LENGTH);
         let mut ret = [0u8; TEST_KEY_LENGTH];
@@ -64,16 +67,19 @@ const TEST_VAL_LENGTH: usize = 6;
 struct TestValue([u8; TEST_VAL_LENGTH]);
 
 impl ToBytes for TestValue {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        Ok(self.0.to_vec())
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.0.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         TEST_VAL_LENGTH
     }
 }
 
 impl FromBytes for TestValue {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (key, rem) = bytes.split_at(TEST_VAL_LENGTH);
         let mut ret = [0u8; TEST_VAL_LENGTH];
@@ -95,7 +101,7 @@ struct HashedTrie<K, V> {
 
 impl<K: ToBytes, V: ToBytes> HashedTrie<K, V> {
     pub fn new(trie: Trie<K, V>) -> Result<Self, bytesrepr::Error> {
-        let trie_bytes = trie.to_bytes()?;
+        let trie_bytes = bytesrepr::serialize(&trie)?;
         let hash = Blake2bHash::new(&trie_bytes);
         Ok(HashedTrie { hash, trie })
     }

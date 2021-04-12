@@ -142,7 +142,7 @@ where
 {
     let x: X = cl_value.into_t()?;
     let result = x.wrapping_add(&(to_add.as_()));
-    Ok(StoredValue::CLValue(CLValue::from_t(result)?))
+    Ok(StoredValue::CLValue(CLValue::from_t(&result)?))
 }
 
 impl Transform {
@@ -461,8 +461,8 @@ mod tests {
         let max = std::i32::MAX;
         let min = std::i32::MIN;
 
-        let max_value = StoredValue::CLValue(CLValue::from_t(max).unwrap());
-        let min_value = StoredValue::CLValue(CLValue::from_t(min).unwrap());
+        let max_value = StoredValue::CLValue(CLValue::from_t(&max).unwrap());
+        let min_value = StoredValue::CLValue(CLValue::from_t(&min).unwrap());
 
         let apply_overflow = Transform::AddInt32(1).apply(max_value.clone());
         let apply_underflow = Transform::AddInt32(-1).apply(min_value.clone());
@@ -486,9 +486,9 @@ mod tests {
         let one = T::one();
         let zero = T::zero();
 
-        let max_value = StoredValue::CLValue(CLValue::from_t(max).unwrap());
-        let min_value = StoredValue::CLValue(CLValue::from_t(min).unwrap());
-        let zero_value = StoredValue::CLValue(CLValue::from_t(zero).unwrap());
+        let max_value = StoredValue::CLValue(CLValue::from_t(&max).unwrap());
+        let min_value = StoredValue::CLValue(CLValue::from_t(&min).unwrap());
+        let zero_value = StoredValue::CLValue(CLValue::from_t(&zero).unwrap());
 
         let max_transform: Transform = max.into();
         let min_transform: Transform = min.into();
@@ -551,58 +551,58 @@ mod tests {
         assert_yields_type_mismatch_error(account);
 
         let cl_bool =
-            StoredValue::CLValue(CLValue::from_t(TEST_BOOL).expect("should create CLValue"));
+            StoredValue::CLValue(CLValue::from_t(&TEST_BOOL).expect("should create CLValue"));
         assert_yields_type_mismatch_error(cl_bool);
 
-        let cl_unit = StoredValue::CLValue(CLValue::from_t(()).expect("should create CLValue"));
+        let cl_unit = StoredValue::CLValue(CLValue::from_t(&()).expect("should create CLValue"));
         assert_yields_type_mismatch_error(cl_unit);
 
         let cl_string =
-            StoredValue::CLValue(CLValue::from_t(TEST_STR).expect("should create CLValue"));
+            StoredValue::CLValue(CLValue::from_t(&TEST_STR).expect("should create CLValue"));
         assert_yields_type_mismatch_error(cl_string);
 
         let cl_key = StoredValue::CLValue(
-            CLValue::from_t(Key::Hash(ZERO_ARRAY)).expect("should create CLValue"),
+            CLValue::from_t(&Key::Hash(ZERO_ARRAY)).expect("should create CLValue"),
         );
         assert_yields_type_mismatch_error(cl_key);
 
-        let cl_uref = StoredValue::CLValue(CLValue::from_t(uref).expect("should create CLValue"));
+        let cl_uref = StoredValue::CLValue(CLValue::from_t(&uref).expect("should create CLValue"));
         assert_yields_type_mismatch_error(cl_uref);
 
         let cl_option =
-            StoredValue::CLValue(CLValue::from_t(Some(ZERO_U8)).expect("should create CLValue"));
+            StoredValue::CLValue(CLValue::from_t(&Some(ZERO_U8)).expect("should create CLValue"));
         assert_yields_type_mismatch_error(cl_option);
 
         let cl_list = StoredValue::CLValue(
-            CLValue::from_t(Bytes::from(vec![ZERO_U8])).expect("should create CLValue"),
+            CLValue::from_t(&Bytes::from(vec![ZERO_U8])).expect("should create CLValue"),
         );
         assert_yields_type_mismatch_error(cl_list);
 
         let cl_fixed_list =
-            StoredValue::CLValue(CLValue::from_t([ZERO_U8]).expect("should create CLValue"));
+            StoredValue::CLValue(CLValue::from_t(&[ZERO_U8]).expect("should create CLValue"));
         assert_yields_type_mismatch_error(cl_fixed_list);
 
         let cl_result: Result<(), u8> = Err(ZERO_U8);
         let cl_result =
-            StoredValue::CLValue(CLValue::from_t(cl_result).expect("should create CLValue"));
+            StoredValue::CLValue(CLValue::from_t(&cl_result).expect("should create CLValue"));
         assert_yields_type_mismatch_error(cl_result);
 
         let cl_map = StoredValue::CLValue(
-            CLValue::from_t(BTreeMap::<u8, u8>::new()).expect("should create CLValue"),
+            CLValue::from_t(&BTreeMap::<u8, u8>::new()).expect("should create CLValue"),
         );
         assert_yields_type_mismatch_error(cl_map);
 
         let cl_tuple1 =
-            StoredValue::CLValue(CLValue::from_t((ZERO_U8,)).expect("should create CLValue"));
+            StoredValue::CLValue(CLValue::from_t(&(ZERO_U8,)).expect("should create CLValue"));
         assert_yields_type_mismatch_error(cl_tuple1);
 
         let cl_tuple2 = StoredValue::CLValue(
-            CLValue::from_t((ZERO_U8, ZERO_U8)).expect("should create CLValue"),
+            CLValue::from_t(&(ZERO_U8, ZERO_U8)).expect("should create CLValue"),
         );
         assert_yields_type_mismatch_error(cl_tuple2);
 
         let cl_tuple3 = StoredValue::CLValue(
-            CLValue::from_t((ZERO_U8, ZERO_U8, ZERO_U8)).expect("should create CLValue"),
+            CLValue::from_t(&(ZERO_U8, ZERO_U8, ZERO_U8)).expect("should create CLValue"),
         );
         assert_yields_type_mismatch_error(cl_tuple3);
     }
@@ -623,7 +623,7 @@ mod tests {
                 + AsPrimitive<U512>,
         {
             let current = StoredValue::CLValue(
-                CLValue::from_t(current_value).expect("should create CLValue"),
+                CLValue::from_t(&current_value).expect("should create CLValue"),
             );
             let result =
                 wrapping_addition(current, to_add).expect("wrapping addition should succeed");

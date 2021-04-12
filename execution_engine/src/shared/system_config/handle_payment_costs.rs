@@ -1,7 +1,8 @@
-use casper_types::bytesrepr::{self, FromBytes, ToBytes};
 use datasize::DataSize;
 use rand::{distributions::Standard, prelude::*, Rng};
 use serde::{Deserialize, Serialize};
+
+use casper_types::bytesrepr::{self, FromBytes, ToBytes};
 
 pub const DEFAULT_GET_PAYMENT_PURSE_COST: u32 = 10_000;
 pub const DEFAULT_SET_REFUND_PURSE_COST: u32 = 10_000;
@@ -29,17 +30,15 @@ impl Default for HandlePaymentCosts {
 }
 
 impl ToBytes for HandlePaymentCosts {
-    fn to_bytes(&self) -> Result<Vec<u8>, casper_types::bytesrepr::Error> {
-        let mut ret = bytesrepr::unchecked_allocate_buffer(self);
-
-        ret.append(&mut self.get_payment_purse.to_bytes()?);
-        ret.append(&mut self.set_refund_purse.to_bytes()?);
-        ret.append(&mut self.get_refund_purse.to_bytes()?);
-        ret.append(&mut self.finalize_payment.to_bytes()?);
-
-        Ok(ret)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.get_payment_purse.to_bytes(sink)?;
+        self.set_refund_purse.to_bytes(sink)?;
+        self.get_refund_purse.to_bytes(sink)?;
+        self.finalize_payment.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.get_payment_purse.serialized_length()
             + self.set_refund_purse.serialized_length()
@@ -49,6 +48,7 @@ impl ToBytes for HandlePaymentCosts {
 }
 
 impl FromBytes for HandlePaymentCosts {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), casper_types::bytesrepr::Error> {
         let (get_payment_purse, rem) = FromBytes::from_bytes(bytes)?;
         let (set_refund_purse, rem) = FromBytes::from_bytes(rem)?;

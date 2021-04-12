@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use casper_types::bytesrepr::{self, Bytes, FromBytes, ToBytes};
+use casper_types::bytesrepr::{self, Bytes, FromBytes, ToBytes, U8_SERIALIZED_LENGTH};
 
 use crate::{
     shared::newtypes::Blake2bHash,
@@ -40,34 +40,33 @@ impl TrieMerkleProofStep {
 }
 
 impl ToBytes for TrieMerkleProofStep {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut ret: Vec<u8> = bytesrepr::allocate_buffer(self)?;
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         match self {
             TrieMerkleProofStep::Node {
                 hole_index,
                 indexed_pointers_with_hole,
             } => {
-                ret.push(TRIE_MERKLE_PROOF_STEP_NODE_ID);
-                ret.push(*hole_index);
-                ret.append(&mut indexed_pointers_with_hole.to_bytes()?)
+                sink.push(TRIE_MERKLE_PROOF_STEP_NODE_ID);
+                sink.push(*hole_index);
+                indexed_pointers_with_hole.to_bytes(sink)
             }
             TrieMerkleProofStep::Extension { affix } => {
-                ret.push(TRIE_MERKLE_PROOF_STEP_EXTENSION_ID);
-                ret.append(&mut affix.to_bytes()?)
+                sink.push(TRIE_MERKLE_PROOF_STEP_EXTENSION_ID);
+                affix.to_bytes(sink)
             }
-        };
-        Ok(ret)
+        }
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
-        std::mem::size_of::<u8>()
+        U8_SERIALIZED_LENGTH
             + match self {
                 TrieMerkleProofStep::Node {
                     hole_index,
                     indexed_pointers_with_hole,
                 } => {
-                    (*hole_index).serialized_length()
-                        + (*indexed_pointers_with_hole).serialized_length()
+                    hole_index.serialized_length() + indexed_pointers_with_hole.serialized_length()
                 }
                 TrieMerkleProofStep::Extension { affix } => affix.serialized_length(),
             }
@@ -75,6 +74,7 @@ impl ToBytes for TrieMerkleProofStep {
 }
 
 impl FromBytes for TrieMerkleProofStep {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (tag, rem): (u8, &[u8]) = FromBytes::from_bytes(bytes)?;
         match tag {
@@ -158,7 +158,7 @@ where
     /// The steps in this function reflect `operations::rehash`.
     pub fn compute_state_hash(&self) -> Result<Blake2bHash, bytesrepr::Error> {
         let mut hash = {
-            let leaf_bytes = Trie::leaf(self.key, self.value.to_owned()).to_bytes()?;
+            let leaf_bytes = bytesrepr::serialize(&Trie::leaf(self.key, self.value.to_owned()))?;
             Blake2bHash::new(&leaf_bytes)
         };
 
@@ -177,10 +177,10 @@ where
                     assert!(hole_index as usize <= RADIX, "hole_index exceeded RADIX");
                     let mut indexed_pointers = indexed_pointers_with_hole.to_owned();
                     indexed_pointers.push((hole_index, pointer));
-                    Trie::<K, V>::node(&indexed_pointers).to_bytes()?
+                    bytesrepr::serialize(&Trie::<K, V>::node(&indexed_pointers))?
                 }
                 TrieMerkleProofStep::Extension { affix } => {
-                    Trie::<K, V>::extension(affix.clone().into(), pointer).to_bytes()?
+                    bytesrepr::serialize(&Trie::<K, V>::extension(affix.clone().into(), pointer))?
                 }
             };
             hash = Blake2bHash::new(&proof_step_bytes);
@@ -194,14 +194,14 @@ where
     K: ToBytes,
     V: ToBytes,
 {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut ret: Vec<u8> = bytesrepr::allocate_buffer(self)?;
-        ret.append(&mut self.key.to_bytes()?);
-        ret.append(&mut self.value.to_bytes()?);
-        ret.append(&mut self.proof_steps.to_bytes()?);
-        Ok(ret)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.key.to_bytes(sink)?;
+        self.value.to_bytes(sink)?;
+        self.proof_steps.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.key.serialized_length()
             + self.value.serialized_length()
@@ -214,6 +214,7 @@ where
     K: FromBytes,
     V: FromBytes,
 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (key, rem): (K, &[u8]) = FromBytes::from_bytes(bytes)?;
         let (value, rem): (V, &[u8]) = FromBytes::from_bytes(rem)?;

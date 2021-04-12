@@ -167,36 +167,35 @@ impl Distribution<OpcodeCosts> for Standard {
 }
 
 impl ToBytes for OpcodeCosts {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut ret = bytesrepr::unchecked_allocate_buffer(self);
-
-        ret.append(&mut self.bit.to_bytes()?);
-        ret.append(&mut self.add.to_bytes()?);
-        ret.append(&mut self.mul.to_bytes()?);
-        ret.append(&mut self.div.to_bytes()?);
-        ret.append(&mut self.load.to_bytes()?);
-        ret.append(&mut self.store.to_bytes()?);
-        ret.append(&mut self.op_const.to_bytes()?);
-        ret.append(&mut self.local.to_bytes()?);
-        ret.append(&mut self.global.to_bytes()?);
-        ret.append(&mut self.control_flow.to_bytes()?);
-        ret.append(&mut self.integer_comparison.to_bytes()?);
-        ret.append(&mut self.conversion.to_bytes()?);
-        ret.append(&mut self.unreachable.to_bytes()?);
-        ret.append(&mut self.nop.to_bytes()?);
-        ret.append(&mut self.current_memory.to_bytes()?);
-        ret.append(&mut self.grow_memory.to_bytes()?);
-        ret.append(&mut self.regular.to_bytes()?);
-
-        Ok(ret)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.bit.to_bytes(sink)?;
+        self.add.to_bytes(sink)?;
+        self.mul.to_bytes(sink)?;
+        self.div.to_bytes(sink)?;
+        self.load.to_bytes(sink)?;
+        self.store.to_bytes(sink)?;
+        self.op_const.to_bytes(sink)?;
+        self.local.to_bytes(sink)?;
+        self.global.to_bytes(sink)?;
+        self.control_flow.to_bytes(sink)?;
+        self.integer_comparison.to_bytes(sink)?;
+        self.conversion.to_bytes(sink)?;
+        self.unreachable.to_bytes(sink)?;
+        self.nop.to_bytes(sink)?;
+        self.current_memory.to_bytes(sink)?;
+        self.grow_memory.to_bytes(sink)?;
+        self.regular.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         OPCODE_COSTS_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for OpcodeCosts {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (bit, bytes): (_, &[u8]) = FromBytes::from_bytes(bytes)?;
         let (add, bytes): (_, &[u8]) = FromBytes::from_bytes(bytes)?;

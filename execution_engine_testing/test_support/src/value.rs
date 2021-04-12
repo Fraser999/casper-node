@@ -23,7 +23,7 @@ impl Value {
 
     /// Constructs a `Value` from `t`.
     pub fn from_t<T: CLTyped + ToBytes>(t: T) -> Result<Value> {
-        let cl_value = CLValue::from_t(t)?;
+        let cl_value = CLValue::from_t(&t)?;
         let inner = StoredValue::CLValue(cl_value);
         Ok(Value { inner })
     }

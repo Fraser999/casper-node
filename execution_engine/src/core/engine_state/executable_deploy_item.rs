@@ -306,33 +306,33 @@ impl ExecutableDeployItem {
 }
 
 impl ToBytes for ExecutableDeployItem {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut buffer = bytesrepr::allocate_buffer(self)?;
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         match self {
             ExecutableDeployItem::ModuleBytes { module_bytes, args } => {
-                buffer.insert(0, MODULE_BYTES_TAG);
-                buffer.extend(module_bytes.to_bytes()?);
-                buffer.extend(args.to_bytes()?);
+                sink.push(MODULE_BYTES_TAG);
+                module_bytes.to_bytes(sink)?;
+                args.to_bytes(sink)
             }
             ExecutableDeployItem::StoredContractByHash {
                 hash,
                 entry_point,
                 args,
             } => {
-                buffer.insert(0, STORED_CONTRACT_BY_HASH_TAG);
-                buffer.extend(hash.to_bytes()?);
-                buffer.extend(entry_point.to_bytes()?);
-                buffer.extend(args.to_bytes()?)
+                sink.push(STORED_CONTRACT_BY_HASH_TAG);
+                hash.to_bytes(sink)?;
+                entry_point.to_bytes(sink)?;
+                args.to_bytes(sink)
             }
             ExecutableDeployItem::StoredContractByName {
                 name,
                 entry_point,
                 args,
             } => {
-                buffer.insert(0, STORED_CONTRACT_BY_NAME_TAG);
-                buffer.extend(name.to_bytes()?);
-                buffer.extend(entry_point.to_bytes()?);
-                buffer.extend(args.to_bytes()?)
+                sink.push(STORED_CONTRACT_BY_NAME_TAG);
+                name.to_bytes(sink)?;
+                entry_point.to_bytes(sink)?;
+                args.to_bytes(sink)
             }
             ExecutableDeployItem::StoredVersionedContractByHash {
                 hash,
@@ -340,11 +340,11 @@ impl ToBytes for ExecutableDeployItem {
                 entry_point,
                 args,
             } => {
-                buffer.insert(0, STORED_VERSIONED_CONTRACT_BY_HASH_TAG);
-                buffer.extend(hash.to_bytes()?);
-                buffer.extend(version.to_bytes()?);
-                buffer.extend(entry_point.to_bytes()?);
-                buffer.extend(args.to_bytes()?)
+                sink.push(STORED_VERSIONED_CONTRACT_BY_HASH_TAG);
+                hash.to_bytes(sink)?;
+                version.to_bytes(sink)?;
+                entry_point.to_bytes(sink)?;
+                args.to_bytes(sink)
             }
             ExecutableDeployItem::StoredVersionedContractByName {
                 name,
@@ -352,20 +352,20 @@ impl ToBytes for ExecutableDeployItem {
                 entry_point,
                 args,
             } => {
-                buffer.insert(0, STORED_VERSIONED_CONTRACT_BY_NAME_TAG);
-                buffer.extend(name.to_bytes()?);
-                buffer.extend(version.to_bytes()?);
-                buffer.extend(entry_point.to_bytes()?);
-                buffer.extend(args.to_bytes()?)
+                sink.push(STORED_VERSIONED_CONTRACT_BY_NAME_TAG);
+                name.to_bytes(sink)?;
+                version.to_bytes(sink)?;
+                entry_point.to_bytes(sink)?;
+                args.to_bytes(sink)
             }
             ExecutableDeployItem::Transfer { args } => {
-                buffer.insert(0, TRANSFER_TAG);
-                buffer.extend(args.to_bytes()?)
+                sink.push(TRANSFER_TAG);
+                args.to_bytes(sink)
             }
         }
-        Ok(buffer)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         TAG_LENGTH
             + match self {
@@ -418,6 +418,7 @@ impl ToBytes for ExecutableDeployItem {
 }
 
 impl FromBytes for ExecutableDeployItem {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (tag, remainder) = u8::from_bytes(bytes)?;
         match tag {
@@ -666,7 +667,7 @@ impl Distribution<ExecutableDeployItem> for Standard {
                 let mut transfer_args = RuntimeArgs::new();
                 transfer_args.insert_cl_value(
                     ARG_AMOUNT,
-                    CLValue::from_t(U512::from(amount)).expect("should get CLValue from U512"),
+                    CLValue::from_t(&U512::from(amount)).expect("should get CLValue from U512"),
                 );
                 ExecutableDeployItem::Transfer {
                     args: transfer_args,

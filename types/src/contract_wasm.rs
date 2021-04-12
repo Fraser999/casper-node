@@ -136,8 +136,8 @@ impl CLTyped for ContractWasmHash {
 
 impl ToBytes for ContractWasmHash {
     #[inline(always)]
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        self.0.to_bytes()
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)
     }
 
     #[inline(always)]
@@ -147,6 +147,7 @@ impl ToBytes for ContractWasmHash {
 }
 
 impl FromBytes for ContractWasmHash {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (bytes, rem) = FromBytes::from_bytes(bytes)?;
         Ok((ContractWasmHash::new(bytes), rem))
@@ -262,16 +263,19 @@ impl ContractWasm {
 }
 
 impl ToBytes for ContractWasm {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        self.bytes.to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.bytes.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.bytes.serialized_length()
     }
 }
 
 impl FromBytes for ContractWasm {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (bytes, rem1) = FromBytes::from_bytes(bytes)?;
         Ok((ContractWasm { bytes }, rem1))

@@ -21,7 +21,7 @@ const CONTRACT_VERSION: &str = "contract_version";
 pub extern "C" fn hello_ext() {
     let test_string = String::from("Hello, world!");
     let test_uref: URef = storage::new_uref(test_string);
-    let return_value = CLValue::from_t(test_uref).unwrap_or_revert();
+    let return_value = CLValue::from_t(&test_uref).unwrap_or_revert();
     runtime::ret(return_value)
 }
 

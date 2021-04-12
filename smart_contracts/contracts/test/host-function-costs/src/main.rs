@@ -163,7 +163,7 @@ pub extern "C" fn storage_function() {
     storage::add(uref, VALUE_FOR_ADDITION_2);
 
     let keys_to_return = runtime::list_named_keys();
-    runtime::ret(CLValue::from_t(keys_to_return).unwrap_or_revert());
+    runtime::ret(CLValue::from_t(&keys_to_return).unwrap_or_revert());
 }
 
 #[no_mangle]

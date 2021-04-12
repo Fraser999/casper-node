@@ -70,8 +70,8 @@ pub struct CLValue {
 
 impl CLValue {
     /// Constructs a `CLValue` from `t`.
-    pub fn from_t<T: CLTyped + ToBytes>(t: T) -> Result<CLValue, CLValueError> {
-        let bytes = t.into_bytes()?;
+    pub fn from_t<T: CLTyped + ToBytes>(t: &T) -> Result<CLValue, CLValueError> {
+        let bytes = bytesrepr::serialize(t)?;
 
         Ok(CLValue {
             cl_type: T::cl_type(),
@@ -134,25 +134,23 @@ impl CLValue {
 }
 
 impl ToBytes for CLValue {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        self.clone().into_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.bytes.to_bytes(sink)?;
+        self.cl_type.to_bytes(sink)
     }
 
-    fn into_bytes(self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = self.bytes.into_bytes()?;
-        self.cl_type.append_bytes(&mut result)?;
-        Ok(result)
-    }
-
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.bytes.serialized_length() + self.cl_type.serialized_length()
     }
 }
 
 impl FromBytes for CLValue {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
-        let (bytes, remainder) = FromBytes::from_bytes(bytes)?;
-        let (cl_type, remainder) = FromBytes::from_bytes(remainder)?;
+        let (bytes, remainder) = Bytes::from_bytes(bytes)?;
+        let (cl_type, remainder) = CLType::from_bytes(remainder)?;
         let cl_value = CLValue { cl_type, bytes };
         Ok((cl_value, remainder))
     }
@@ -245,7 +243,7 @@ mod tests {
 
     #[test]
     fn serde_roundtrip() {
-        let cl_value = CLValue::from_t(true).unwrap();
+        let cl_value = CLValue::from_t(&true).unwrap();
         let serialized = bincode::serialize(&cl_value).unwrap();
         let decoded = bincode::deserialize(&serialized).unwrap();
         assert_eq!(cl_value, decoded);
@@ -253,14 +251,14 @@ mod tests {
 
     #[test]
     fn json_roundtrip() {
-        let cl_value = CLValue::from_t(true).unwrap();
+        let cl_value = CLValue::from_t(&true).unwrap();
         let json_string = serde_json::to_string_pretty(&cl_value).unwrap();
         let decoded = serde_json::from_str(&json_string).unwrap();
         assert_eq!(cl_value, decoded);
     }
 
     fn check_to_json<T: CLTyped + ToBytes + FromBytes>(value: T, expected: &str) {
-        let cl_value = CLValue::from_t(value).unwrap();
+        let cl_value = CLValue::from_t(&value).unwrap();
         let cl_value_as_json = serde_json::to_string(&cl_value).unwrap();
         // Remove the `serialized_bytes` field:
         // Split the string at `,"serialized_bytes":`.

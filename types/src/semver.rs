@@ -57,20 +57,21 @@ impl SemVer {
 }
 
 impl ToBytes for SemVer {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut ret = bytesrepr::unchecked_allocate_buffer(self);
-        ret.append(&mut self.major.to_bytes()?);
-        ret.append(&mut self.minor.to_bytes()?);
-        ret.append(&mut self.patch.to_bytes()?);
-        Ok(ret)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.major.to_bytes(sink)?;
+        self.minor.to_bytes(sink)?;
+        self.patch.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         SEM_VER_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for SemVer {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (major, rem): (u32, &[u8]) = FromBytes::from_bytes(bytes)?;
         let (minor, rem): (u32, &[u8]) = FromBytes::from_bytes(rem)?;

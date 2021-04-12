@@ -65,16 +65,19 @@ impl JsonSchema for DeployHash {
 }
 
 impl ToBytes for DeployHash {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        self.0.to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.0.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length()
     }
 }
 
 impl FromBytes for DeployHash {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         <[u8; DEPLOY_HASH_LENGTH]>::from_bytes(bytes)
             .map(|(inner, remainder)| (DeployHash(inner), remainder))
@@ -159,7 +162,34 @@ impl Transfer {
     }
 }
 
+impl ToBytes for Transfer {
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.deploy_hash.to_bytes(sink)?;
+        self.from.to_bytes(sink)?;
+        self.to.to_bytes(sink)?;
+        self.source.to_bytes(sink)?;
+        self.target.to_bytes(sink)?;
+        self.amount.to_bytes(sink)?;
+        self.gas.to_bytes(sink)?;
+        self.id.to_bytes(sink)
+    }
+
+    #[inline(always)]
+    fn serialized_length(&self) -> usize {
+        self.deploy_hash.serialized_length()
+            + self.from.serialized_length()
+            + self.to.serialized_length()
+            + self.source.serialized_length()
+            + self.target.serialized_length()
+            + self.amount.serialized_length()
+            + self.gas.serialized_length()
+            + self.id.serialized_length()
+    }
+}
+
 impl FromBytes for Transfer {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (deploy_hash, rem) = FromBytes::from_bytes(bytes)?;
         let (from, rem) = AccountHash::from_bytes(rem)?;
@@ -182,32 +212,6 @@ impl FromBytes for Transfer {
             },
             rem,
         ))
-    }
-}
-
-impl ToBytes for Transfer {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
-        result.append(&mut self.deploy_hash.to_bytes()?);
-        result.append(&mut self.from.to_bytes()?);
-        result.append(&mut self.to.to_bytes()?);
-        result.append(&mut self.source.to_bytes()?);
-        result.append(&mut self.target.to_bytes()?);
-        result.append(&mut self.amount.to_bytes()?);
-        result.append(&mut self.gas.to_bytes()?);
-        result.append(&mut self.id.to_bytes()?);
-        Ok(result)
-    }
-
-    fn serialized_length(&self) -> usize {
-        self.deploy_hash.serialized_length()
-            + self.from.serialized_length()
-            + self.to.serialized_length()
-            + self.source.serialized_length()
-            + self.target.serialized_length()
-            + self.amount.serialized_length()
-            + self.gas.serialized_length()
-            + self.id.serialized_length()
     }
 }
 
@@ -362,8 +366,8 @@ impl CLTyped for TransferAddr {
 
 impl ToBytes for TransferAddr {
     #[inline(always)]
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        self.0.to_bytes()
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.0.to_bytes(sink)
     }
 
     #[inline(always)]
@@ -373,6 +377,7 @@ impl ToBytes for TransferAddr {
 }
 
 impl FromBytes for TransferAddr {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (bytes, remainder) = FromBytes::from_bytes(bytes)?;
         Ok((TransferAddr::new(bytes), remainder))

@@ -1,6 +1,5 @@
 //! Home of the Handle Payment contract's [`Error`] type.
 use alloc::vec::Vec;
-use core::result;
 
 #[cfg(feature = "std")]
 use thiserror::Error;
@@ -135,11 +134,13 @@ impl CLTyped for Error {
 }
 
 impl ToBytes for Error {
-    fn to_bytes(&self) -> result::Result<Vec<u8>, bytesrepr::Error> {
-        let value = *self as u8;
-        value.to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        sink.push(*self as u8);
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         U8_SERIALIZED_LENGTH
     }

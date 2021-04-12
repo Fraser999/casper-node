@@ -282,11 +282,11 @@ mod tests {
         [
             TestPair {
                 key: Key::Account(AccountHash::new([1_u8; 32])),
-                value: StoredValue::CLValue(CLValue::from_t(1_i32).unwrap()),
+                value: StoredValue::CLValue(CLValue::from_t(&1_i32).unwrap()),
             },
             TestPair {
                 key: Key::Account(AccountHash::new([2_u8; 32])),
-                value: StoredValue::CLValue(CLValue::from_t(2_i32).unwrap()),
+                value: StoredValue::CLValue(CLValue::from_t(&2_i32).unwrap()),
             },
         ]
     }
@@ -295,15 +295,15 @@ mod tests {
         [
             TestPair {
                 key: Key::Account(AccountHash::new([1u8; 32])),
-                value: StoredValue::CLValue(CLValue::from_t("one".to_string()).unwrap()),
+                value: StoredValue::CLValue(CLValue::from_t(&"one".to_string()).unwrap()),
             },
             TestPair {
                 key: Key::Account(AccountHash::new([2u8; 32])),
-                value: StoredValue::CLValue(CLValue::from_t("two".to_string()).unwrap()),
+                value: StoredValue::CLValue(CLValue::from_t(&"two".to_string()).unwrap()),
             },
             TestPair {
                 key: Key::Account(AccountHash::new([3u8; 32])),
-                value: StoredValue::CLValue(CLValue::from_t(3_i32).unwrap()),
+                value: StoredValue::CLValue(CLValue::from_t(&3_i32).unwrap()),
             },
         ]
     }

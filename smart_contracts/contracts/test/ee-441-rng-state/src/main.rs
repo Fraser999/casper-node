@@ -19,7 +19,7 @@ const ARG_FLAG: &str = "flag";
 #[no_mangle]
 pub extern "C" fn do_nothing() {
     // Doesn't advance RNG of the runtime
-    runtime::ret(CLValue::from_t("Hello, world!").unwrap_or_revert())
+    runtime::ret(CLValue::from_t(&"Hello, world!").unwrap_or_revert())
 }
 
 #[no_mangle]
@@ -28,7 +28,7 @@ pub extern "C" fn do_something() {
     let test_string = String::from("Hello, world!");
 
     let test_uref: URef = storage::new_uref(test_string);
-    let return_value = CLValue::from_t(test_uref).unwrap_or_revert();
+    let return_value = CLValue::from_t(&test_uref).unwrap_or_revert();
     runtime::ret(return_value)
 }
 

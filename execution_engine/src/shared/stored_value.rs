@@ -274,32 +274,57 @@ impl TryFrom<StoredValue> for EraInfo {
 }
 
 impl ToBytes for StoredValue {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
-        let (tag, mut serialized_data) = match self {
-            StoredValue::CLValue(cl_value) => (Tag::CLValue, cl_value.to_bytes()?),
-            StoredValue::Account(account) => (Tag::Account, account.to_bytes()?),
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        match self {
+            StoredValue::CLValue(cl_value) => {
+                sink.push(Tag::CLValue as u8);
+                cl_value.to_bytes(sink)
+            }
+            StoredValue::Account(account) => {
+                sink.push(Tag::Account as u8);
+                account.to_bytes(sink)
+            }
             StoredValue::ContractWasm(contract_wasm) => {
-                (Tag::ContractWasm, contract_wasm.to_bytes()?)
+                sink.push(Tag::ContractWasm as u8);
+                contract_wasm.to_bytes(sink)
             }
-            StoredValue::Contract(contract_header) => (Tag::Contract, contract_header.to_bytes()?),
+            StoredValue::Contract(contract_header) => {
+                sink.push(Tag::Contract as u8);
+                contract_header.to_bytes(sink)
+            }
             StoredValue::ContractPackage(contract_package) => {
-                (Tag::ContractPackage, contract_package.to_bytes()?)
+                sink.push(Tag::ContractPackage as u8);
+                contract_package.to_bytes(sink)
             }
-            StoredValue::Transfer(transfer) => (Tag::Transfer, transfer.to_bytes()?),
-            StoredValue::DeployInfo(deploy_info) => (Tag::DeployInfo, deploy_info.to_bytes()?),
-            StoredValue::EraInfo(era_info) => (Tag::EraInfo, era_info.to_bytes()?),
-            StoredValue::Bid(bid) => (Tag::Bid, bid.to_bytes()?),
+            StoredValue::Transfer(transfer) => {
+                sink.push(Tag::Transfer as u8);
+                transfer.to_bytes(sink)
+            }
+            StoredValue::DeployInfo(deploy_info) => {
+                sink.push(Tag::DeployInfo as u8);
+                deploy_info.to_bytes(sink)
+            }
+            StoredValue::EraInfo(era_info) => {
+                sink.push(Tag::EraInfo as u8);
+                era_info.to_bytes(sink)
+            }
+            StoredValue::Bid(bid) => {
+                sink.push(Tag::Bid as u8);
+                bid.to_bytes(sink)
+            }
             StoredValue::Withdraw(unbonding_purses) => {
-                (Tag::Withdraw, unbonding_purses.to_bytes()?)
+                sink.push(Tag::Withdraw as u8);
+                unbonding_purses.to_bytes(sink)
             }
-            StoredValue::EraValidators(recipients) => (Tag::EraValidators, recipients.to_bytes()?),
-        };
-        result.push(tag as u8);
-        result.append(&mut serialized_data);
-        Ok(result)
+            StoredValue::EraValidators(recipients) => {
+                sink.push(Tag::EraValidators as u8);
+                recipients.to_bytes(sink)
+            }
+        }
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         U8_SERIALIZED_LENGTH
             + match self {
@@ -321,6 +346,7 @@ impl ToBytes for StoredValue {
 }
 
 impl FromBytes for StoredValue {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (tag, remainder): (u8, &[u8]) = FromBytes::from_bytes(bytes)?;
         match tag {
@@ -364,8 +390,7 @@ impl Serialize for StoredValue {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         // The JSON representation of a StoredValue is just its bytesrepr
         // While this makes it harder to inspect, it makes deterministic representation simple.
-        let bytes = self
-            .to_bytes()
+        let bytes = bytesrepr::serialize(self)
             .map_err(|error| ser::Error::custom(format!("{:?}", error)))?;
         ByteBuf::from(bytes).serialize(serializer)
     }

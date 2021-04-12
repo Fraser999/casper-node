@@ -45,7 +45,7 @@ pub extern "C" fn remove() {
 
 #[no_mangle]
 pub extern "C" fn version() {
-    runtime::ret(CLValue::from_t(VERSION).unwrap_or_revert())
+    runtime::ret(CLValue::from_t(&VERSION).unwrap_or_revert())
 }
 
 #[no_mangle]

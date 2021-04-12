@@ -152,15 +152,16 @@ impl<T> ToBytes for HostFunction<T>
 where
     T: AsRef<[Cost]>,
 {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut ret = bytesrepr::unchecked_allocate_buffer(self);
-        ret.append(&mut self.cost.to_bytes()?);
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.cost.to_bytes(sink)?;
         for value in self.arguments.as_ref().iter() {
-            ret.append(&mut value.to_bytes()?);
+            value.to_bytes(sink)?;
         }
-        Ok(ret)
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.cost.serialized_length() + (COST_SERIALIZED_LENGTH * self.arguments.as_ref().len())
     }
@@ -170,6 +171,7 @@ impl<T> FromBytes for HostFunction<T>
 where
     T: Default + AsMut<[Cost]>,
 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (cost, mut bytes) = FromBytes::from_bytes(bytes)?;
         let mut arguments = T::default();
@@ -349,53 +351,53 @@ impl Default for HostFunctionCosts {
 }
 
 impl ToBytes for HostFunctionCosts {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut ret = bytesrepr::unchecked_allocate_buffer(self);
-        ret.append(&mut self.read_value.to_bytes()?);
-        ret.append(&mut self.read_value_local.to_bytes()?);
-        ret.append(&mut self.write.to_bytes()?);
-        ret.append(&mut self.write_local.to_bytes()?);
-        ret.append(&mut self.add.to_bytes()?);
-        ret.append(&mut self.new_uref.to_bytes()?);
-        ret.append(&mut self.load_named_keys.to_bytes()?);
-        ret.append(&mut self.ret.to_bytes()?);
-        ret.append(&mut self.get_key.to_bytes()?);
-        ret.append(&mut self.has_key.to_bytes()?);
-        ret.append(&mut self.put_key.to_bytes()?);
-        ret.append(&mut self.remove_key.to_bytes()?);
-        ret.append(&mut self.revert.to_bytes()?);
-        ret.append(&mut self.is_valid_uref.to_bytes()?);
-        ret.append(&mut self.add_associated_key.to_bytes()?);
-        ret.append(&mut self.remove_associated_key.to_bytes()?);
-        ret.append(&mut self.update_associated_key.to_bytes()?);
-        ret.append(&mut self.set_action_threshold.to_bytes()?);
-        ret.append(&mut self.get_caller.to_bytes()?);
-        ret.append(&mut self.get_blocktime.to_bytes()?);
-        ret.append(&mut self.create_purse.to_bytes()?);
-        ret.append(&mut self.transfer_to_account.to_bytes()?);
-        ret.append(&mut self.transfer_from_purse_to_account.to_bytes()?);
-        ret.append(&mut self.transfer_from_purse_to_purse.to_bytes()?);
-        ret.append(&mut self.get_balance.to_bytes()?);
-        ret.append(&mut self.get_phase.to_bytes()?);
-        ret.append(&mut self.get_system_contract.to_bytes()?);
-        ret.append(&mut self.get_main_purse.to_bytes()?);
-        ret.append(&mut self.read_host_buffer.to_bytes()?);
-        ret.append(&mut self.create_contract_package_at_hash.to_bytes()?);
-        ret.append(&mut self.create_contract_user_group.to_bytes()?);
-        ret.append(&mut self.add_contract_version.to_bytes()?);
-        ret.append(&mut self.disable_contract_version.to_bytes()?);
-        ret.append(&mut self.call_contract.to_bytes()?);
-        ret.append(&mut self.call_versioned_contract.to_bytes()?);
-        ret.append(&mut self.get_named_arg_size.to_bytes()?);
-        ret.append(&mut self.get_named_arg.to_bytes()?);
-        ret.append(&mut self.remove_contract_user_group.to_bytes()?);
-        ret.append(&mut self.provision_contract_user_group_uref.to_bytes()?);
-        ret.append(&mut self.remove_contract_user_group_urefs.to_bytes()?);
-        ret.append(&mut self.print.to_bytes()?);
-        ret.append(&mut self.blake2b.to_bytes()?);
-        Ok(ret)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.read_value.to_bytes(sink)?;
+        self.read_value_local.to_bytes(sink)?;
+        self.write.to_bytes(sink)?;
+        self.write_local.to_bytes(sink)?;
+        self.add.to_bytes(sink)?;
+        self.new_uref.to_bytes(sink)?;
+        self.load_named_keys.to_bytes(sink)?;
+        self.ret.to_bytes(sink)?;
+        self.get_key.to_bytes(sink)?;
+        self.has_key.to_bytes(sink)?;
+        self.put_key.to_bytes(sink)?;
+        self.remove_key.to_bytes(sink)?;
+        self.revert.to_bytes(sink)?;
+        self.is_valid_uref.to_bytes(sink)?;
+        self.add_associated_key.to_bytes(sink)?;
+        self.remove_associated_key.to_bytes(sink)?;
+        self.update_associated_key.to_bytes(sink)?;
+        self.set_action_threshold.to_bytes(sink)?;
+        self.get_caller.to_bytes(sink)?;
+        self.get_blocktime.to_bytes(sink)?;
+        self.create_purse.to_bytes(sink)?;
+        self.transfer_to_account.to_bytes(sink)?;
+        self.transfer_from_purse_to_account.to_bytes(sink)?;
+        self.transfer_from_purse_to_purse.to_bytes(sink)?;
+        self.get_balance.to_bytes(sink)?;
+        self.get_phase.to_bytes(sink)?;
+        self.get_system_contract.to_bytes(sink)?;
+        self.get_main_purse.to_bytes(sink)?;
+        self.read_host_buffer.to_bytes(sink)?;
+        self.create_contract_package_at_hash.to_bytes(sink)?;
+        self.create_contract_user_group.to_bytes(sink)?;
+        self.add_contract_version.to_bytes(sink)?;
+        self.disable_contract_version.to_bytes(sink)?;
+        self.call_contract.to_bytes(sink)?;
+        self.call_versioned_contract.to_bytes(sink)?;
+        self.get_named_arg_size.to_bytes(sink)?;
+        self.get_named_arg.to_bytes(sink)?;
+        self.remove_contract_user_group.to_bytes(sink)?;
+        self.provision_contract_user_group_uref.to_bytes(sink)?;
+        self.remove_contract_user_group_urefs.to_bytes(sink)?;
+        self.print.to_bytes(sink)?;
+        self.blake2b.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.read_value.serialized_length()
             + self.read_value_local.serialized_length()
@@ -443,6 +445,7 @@ impl ToBytes for HostFunctionCosts {
 }
 
 impl FromBytes for HostFunctionCosts {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (read_value, rem) = FromBytes::from_bytes(bytes)?;
         let (read_value_local, rem) = FromBytes::from_bytes(rem)?;

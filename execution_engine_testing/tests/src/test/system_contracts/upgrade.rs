@@ -598,7 +598,7 @@ fn should_apply_global_state_upgrade() {
     let mut update_map = BTreeMap::new();
     update_map.insert(
         unbonding_delay_key,
-        StoredValue::from(CLValue::from_t(new_unbonding_delay).expect("should create a CLValue")),
+        StoredValue::from(CLValue::from_t(&new_unbonding_delay).expect("should create a CLValue")),
     );
 
     let mut upgrade_request = {

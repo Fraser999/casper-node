@@ -50,20 +50,19 @@ impl Distribution<StorageCosts> for Standard {
 }
 
 impl ToBytes for StorageCosts {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut ret = bytesrepr::unchecked_allocate_buffer(self);
-
-        ret.append(&mut self.gas_per_byte.to_bytes()?);
-
-        Ok(ret)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.gas_per_byte.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.gas_per_byte.serialized_length()
     }
 }
 
 impl FromBytes for StorageCosts {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (gas_per_byte, rem) = FromBytes::from_bytes(bytes)?;
 

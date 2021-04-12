@@ -128,16 +128,19 @@ impl ProtocolVersion {
 }
 
 impl ToBytes for ProtocolVersion {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        self.value().to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.value().to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.value().serialized_length()
     }
 }
 
 impl FromBytes for ProtocolVersion {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (version, rem) = SemVer::from_bytes(bytes)?;
         let protocol_version = ProtocolVersion::new(version);

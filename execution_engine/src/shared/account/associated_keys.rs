@@ -113,16 +113,19 @@ impl From<BTreeMap<AccountHash, Weight>> for AssociatedKeys {
 }
 
 impl ToBytes for AssociatedKeys {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        self.0.to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length()
     }
 }
 
 impl FromBytes for AssociatedKeys {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (num_keys, mut stream) = u32::from_bytes(bytes)?;
         if num_keys as usize > MAX_ASSOCIATED_KEYS {
@@ -172,7 +175,7 @@ mod tests {
 
     use casper_types::{
         account::{AccountHash, AddKeyFailure, Weight, ACCOUNT_HASH_LENGTH, MAX_ASSOCIATED_KEYS},
-        bytesrepr::{self, ToBytes},
+        bytesrepr,
     };
 
     use super::AssociatedKeys;
@@ -357,7 +360,7 @@ mod tests {
             })
             .collect();
 
-        let bytes = malicious_map.to_bytes().expect("should serialize");
+        let bytes = bytesrepr::serialize(&malicious_map).expect("should serialize");
 
         assert_eq!(
             bytesrepr::deserialize::<AssociatedKeys>(bytes).expect_err("should deserialize"),

@@ -1,7 +1,8 @@
-use casper_types::bytesrepr::{self, FromBytes, ToBytes};
 use datasize::DataSize;
 use rand::{distributions::Standard, prelude::*, Rng};
 use serde::{Deserialize, Serialize};
+
+use casper_types::bytesrepr::{self, FromBytes, ToBytes};
 
 pub const DEFAULT_MINT_COST: u32 = 10_000;
 pub const DEFAULT_REDUCE_TOTAL_SUPPLY_COST: u32 = 10_000;
@@ -35,19 +36,17 @@ impl Default for MintCosts {
 }
 
 impl ToBytes for MintCosts {
-    fn to_bytes(&self) -> Result<Vec<u8>, casper_types::bytesrepr::Error> {
-        let mut ret = bytesrepr::unchecked_allocate_buffer(self);
-
-        ret.append(&mut self.mint.to_bytes()?);
-        ret.append(&mut self.reduce_total_supply.to_bytes()?);
-        ret.append(&mut self.create.to_bytes()?);
-        ret.append(&mut self.balance.to_bytes()?);
-        ret.append(&mut self.transfer.to_bytes()?);
-        ret.append(&mut self.read_base_round_reward.to_bytes()?);
-
-        Ok(ret)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.mint.to_bytes(sink)?;
+        self.reduce_total_supply.to_bytes(sink)?;
+        self.create.to_bytes(sink)?;
+        self.balance.to_bytes(sink)?;
+        self.transfer.to_bytes(sink)?;
+        self.read_base_round_reward.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.mint.serialized_length()
             + self.reduce_total_supply.serialized_length()
@@ -59,6 +58,7 @@ impl ToBytes for MintCosts {
 }
 
 impl FromBytes for MintCosts {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), casper_types::bytesrepr::Error> {
         let (mint, rem) = FromBytes::from_bytes(bytes)?;
         let (reduce_total_supply, rem) = FromBytes::from_bytes(rem)?;

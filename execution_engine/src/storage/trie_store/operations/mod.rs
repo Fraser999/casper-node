@@ -54,7 +54,7 @@ where
     S::Error: From<T::Error>,
     E: From<S::Error> + From<bytesrepr::Error>,
 {
-    let path: Vec<u8> = key.to_bytes()?;
+    let path = bytesrepr::serialize(key)?;
 
     let mut depth: usize = 0;
     let mut current: Trie<K, V> = match store.get(txn, root)? {
@@ -147,7 +147,7 @@ where
     E: From<S::Error> + From<bytesrepr::Error>,
 {
     let mut proof_steps = VecDeque::new();
-    let path: Vec<u8> = key.to_bytes()?;
+    let path = bytesrepr::serialize(key)?;
 
     let mut depth: usize = 0;
     let mut current: Trie<K, V> = match store.get(txn, root)? {
@@ -255,7 +255,7 @@ where
         let maybe_retrieved_trie: Option<Trie<K, V>> = store.get(txn, &trie_key)?;
         if let Some(trie_value) = &maybe_retrieved_trie {
             let hash_of_trie_value = {
-                let node_bytes = trie_value.to_bytes()?;
+                let node_bytes = bytesrepr::serialize(trie_value)?;
                 Blake2bHash::new(&node_bytes)
             };
             if trie_key != hash_of_trie_value {
@@ -328,7 +328,7 @@ where
         let maybe_retrieved_trie: Option<Trie<K, V>> = store.get(txn, &trie_key)?;
         if let Some(trie_value) = &maybe_retrieved_trie {
             let hash_of_trie_value = {
-                let node_bytes = trie_value.to_bytes()?;
+                let node_bytes = bytesrepr::serialize(trie_value)?;
                 Blake2bHash::new(&node_bytes)
             };
             if trie_key != hash_of_trie_value {
@@ -345,7 +345,7 @@ where
             }
             // If we could retrieve the node and it is a leaf, the search can move on
             Some(Trie::Leaf { key, .. }) => {
-                let key_bytes = key.to_bytes()?;
+                let key_bytes = bytesrepr::serialize(&key)?;
                 if !key_bytes.starts_with(&path) {
                     panic!(
                         "Trie key {:?} belongs to a leaf with a corrupted affix. Key bytes: {:?}, Path: {:?}.",
@@ -506,7 +506,7 @@ where
         Some(root_trie) => root_trie,
     };
 
-    let key_bytes = key_to_delete.to_bytes()?;
+    let key_bytes = bytesrepr::serialize(key_to_delete)?;
     let TrieScan { tip, mut parents } =
         scan::<_, _, _, _, E>(correlation_id, txn, store, &key_bytes, &root_trie)?;
 
@@ -530,7 +530,7 @@ where
                     pointer_block[idx as usize] = None;
                     Trie::Node { pointer_block }
                 };
-                let trie_key = Blake2bHash::new(&trie_node.to_bytes()?);
+                let trie_key = Blake2bHash::new(&bytesrepr::serialize(&trie_node)?);
                 new_elements.push((trie_key, trie_node))
             }
             // The parent is the node which pointed to the leaf we deleted, and that leaf had one or
@@ -547,7 +547,7 @@ where
                         let trie_node = Trie::Node {
                             pointer_block: Box::new(PointerBlock::new()),
                         };
-                        let trie_key = Blake2bHash::new(&trie_node.to_bytes()?);
+                        let trie_key = Blake2bHash::new(&bytesrepr::serialize(&trie_node)?);
                         new_elements.push((trie_key, trie_node));
                         break;
                     }
@@ -561,7 +561,7 @@ where
                     (_, None) => {
                         pointer_block[idx as usize] = None;
                         let trie_node = Trie::Node { pointer_block };
-                        let trie_key = Blake2bHash::new(&trie_node.to_bytes()?);
+                        let trie_key = Blake2bHash::new(&bytesrepr::serialize(&trie_node)?);
                         new_elements.push((trie_key, trie_node));
                         break;
                     }
@@ -570,7 +570,7 @@ where
                     (Pointer::LeafPointer(..), Some((idx, Trie::Node { mut pointer_block }))) => {
                         pointer_block[idx as usize] = Some(sibling_pointer);
                         let trie_node = Trie::Node { pointer_block };
-                        let trie_key = Blake2bHash::new(&trie_node.to_bytes()?);
+                        let trie_key = Blake2bHash::new(&bytesrepr::serialize(&trie_node)?);
                         new_elements.push((trie_key, trie_node))
                     }
                     // The sibling is a leaf and the grandparent is an extension.
@@ -586,7 +586,7 @@ where
                             Some((idx, Trie::Node { mut pointer_block })) => {
                                 pointer_block[idx as usize] = Some(sibling_pointer);
                                 let trie_node = Trie::Node { pointer_block };
-                                let trie_key = Blake2bHash::new(&trie_node.to_bytes()?);
+                                let trie_key = Blake2bHash::new(&bytesrepr::serialize(&trie_node)?);
                                 new_elements.push((trie_key, trie_node))
                             }
                         }
@@ -616,7 +616,8 @@ where
                                     affix: vec![sibling_idx].into(),
                                     pointer: sibling_pointer,
                                 };
-                                let trie_key = Blake2bHash::new(&new_extension.to_bytes()?);
+                                let trie_key =
+                                    Blake2bHash::new(&bytesrepr::serialize(&new_extension)?);
                                 new_elements.push((trie_key, new_extension))
                             }
                             // The single sibling is a extension.  We output an extension to replace
@@ -633,7 +634,8 @@ where
                                     affix: new_affix.into(),
                                     pointer,
                                 };
-                                let trie_key = Blake2bHash::new(&new_extension.to_bytes()?);
+                                let trie_key =
+                                    Blake2bHash::new(&bytesrepr::serialize(&new_extension)?);
                                 new_elements.push((trie_key, new_extension))
                             }
                         }
@@ -648,7 +650,7 @@ where
                     pointer_block[idx as usize] = Some(Pointer::NodePointer(*trie_key));
                     Trie::Node { pointer_block }
                 };
-                let trie_key = Blake2bHash::new(&trie_node.to_bytes()?);
+                let trie_key = Blake2bHash::new(&bytesrepr::serialize(&trie_node)?);
                 new_elements.push((trie_key, trie_node))
             }
             // The parent is an extension, and we are outputting an extension.  Prepend the parent
@@ -672,7 +674,7 @@ where
                         affix: child_affix.to_owned(),
                         pointer: pointer.to_owned(),
                     };
-                    Blake2bHash::new(&new_extension.to_bytes()?)
+                    Blake2bHash::new(&bytesrepr::serialize(&new_extension)?)
                 }
             }
             // The parent is an extension and the new element is a pointer block.  The next element
@@ -680,7 +682,7 @@ where
             (Some((trie_key, Trie::Node { .. })), Trie::Extension { affix, .. }) => {
                 let pointer = Pointer::NodePointer(*trie_key);
                 let trie_extension = Trie::Extension { affix, pointer };
-                let trie_key = Blake2bHash::new(&trie_extension.to_bytes()?);
+                let trie_key = Blake2bHash::new(&bytesrepr::serialize(&trie_extension)?);
                 new_elements.push((trie_key, trie_extension))
             }
         }
@@ -707,7 +709,7 @@ where
 {
     let mut ret: Vec<(Blake2bHash, Trie<K, V>)> = Vec::new();
     let mut tip_hash = {
-        let node_bytes = tip.to_bytes()?;
+        let node_bytes = bytesrepr::serialize(&tip)?;
         Blake2bHash::new(&node_bytes)
     };
     ret.push((tip_hash, tip.to_owned()));
@@ -728,7 +730,7 @@ where
                     Trie::Node { pointer_block }
                 };
                 tip_hash = {
-                    let node_bytes = tip.to_bytes()?;
+                    let node_bytes = bytesrepr::serialize(&tip)?;
                     Blake2bHash::new(&node_bytes)
                 };
                 ret.push((tip_hash, tip.to_owned()))
@@ -739,7 +741,7 @@ where
                     Trie::Extension { affix, pointer }
                 };
                 tip_hash = {
-                    let extension_bytes = tip.to_bytes()?;
+                    let extension_bytes = bytesrepr::serialize(&tip)?;
                     Blake2bHash::new(&extension_bytes)
                 };
                 ret.push((tip_hash, tip.to_owned()))
@@ -853,7 +855,7 @@ where
     // If the affix is non-empty, create an extension node and add it
     // to parents.
     if !affix.is_empty() {
-        let new_node_bytes = new_node.to_bytes()?;
+        let new_node_bytes = bytesrepr::serialize(&new_node)?;
         let new_node_hash = Blake2bHash::new(&new_node_bytes);
         let new_extension = Trie::extension(affix.to_vec(), Pointer::NodePointer(new_node_hash));
         parents.push((child_index, new_extension));
@@ -907,7 +909,7 @@ where
             None
         } else {
             let child_extension = Trie::extension(child_extension_affix.to_vec(), pointer);
-            let child_extension_bytes = child_extension.to_bytes()?;
+            let child_extension_bytes = bytesrepr::serialize(&child_extension)?;
             let child_extension_hash = Blake2bHash::new(&child_extension_bytes);
             Some((child_extension_hash, child_extension))
         };
@@ -921,7 +923,7 @@ where
     };
     // Create a parent extension if necessary
     if !parent_extension_affix.is_empty() {
-        let new_node_bytes = new_node.to_bytes()?;
+        let new_node_bytes = bytesrepr::serialize(&new_node)?;
         let new_node_hash = Blake2bHash::new(&new_node_bytes);
         let parent_extension = Trie::extension(
             parent_extension_affix.to_vec(),
@@ -966,7 +968,7 @@ where
                 key: key.to_owned(),
                 value: value.to_owned(),
             };
-            let path: Vec<u8> = key.to_bytes()?;
+            let path = bytesrepr::serialize(key)?;
             let TrieScan { tip, parents } =
                 scan::<K, V, T, S, E>(correlation_id, txn, store, &path, &current_root)?;
             let new_elements: Vec<(Blake2bHash, Trie<K, V>)> = match tip {
@@ -988,7 +990,7 @@ where
                     key: ref existing_leaf_key,
                     ..
                 } if key != existing_leaf_key => {
-                    let existing_leaf_path = existing_leaf_key.to_bytes()?;
+                    let existing_leaf_path = bytesrepr::serialize(existing_leaf_key)?;
                     let (new_node, parents) = reparent_leaf(&path, &existing_leaf_path, parents)?;
                     let parents = add_node_to_parents(&path, new_node, parents);
                     rehash(new_leaf, parents)?
@@ -1048,7 +1050,7 @@ where
     E: From<S::Error> + From<bytesrepr::Error>,
 {
     let trie_hash = {
-        let node_bytes = trie.to_bytes()?;
+        let node_bytes = bytesrepr::serialize(trie)?;
         Blake2bHash::new(&node_bytes)
     };
     store.put(txn, &trie_hash, trie)?;
@@ -1110,7 +1112,7 @@ where
 
             match trie {
                 Trie::Leaf { key, .. } => {
-                    let key_bytes = match key.to_bytes() {
+                    let key_bytes = match bytesrepr::serialize(&key) {
                         Ok(bytes) => bytes,
                         Err(e) => {
                             self.state = KeysIteratorState::Failed;

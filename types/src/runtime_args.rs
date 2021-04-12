@@ -42,19 +42,20 @@ impl From<(String, CLValue)> for NamedArg {
 }
 
 impl ToBytes for NamedArg {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
-        result.append(&mut self.0.to_bytes()?);
-        result.append(&mut self.1.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.0.to_bytes(sink)?;
+        self.1.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length() + self.1.serialized_length()
     }
 }
 
 impl FromBytes for NamedArg {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (name, remainder) = String::from_bytes(bytes)?;
         let (cl_value, remainder) = CLValue::from_bytes(remainder)?;
@@ -118,7 +119,7 @@ impl RuntimeArgs {
         K: Into<String>,
         V: CLTyped + ToBytes,
     {
-        let cl_value = CLValue::from_t(value)?;
+        let cl_value = CLValue::from_t(&value)?;
         self.0.push(NamedArg(key.into(), cl_value));
         Ok(())
     }
@@ -160,16 +161,19 @@ impl Into<BTreeMap<String, CLValue>> for RuntimeArgs {
 }
 
 impl ToBytes for RuntimeArgs {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        self.0.to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.0.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length()
     }
 }
 
 impl FromBytes for RuntimeArgs {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (args, remainder) = Vec::<NamedArg>::from_bytes(bytes)?;
         Ok((RuntimeArgs(args), remainder))
@@ -210,9 +214,9 @@ mod tests {
 
     #[test]
     fn test_runtime_args() {
-        let arg1 = CLValue::from_t(1).unwrap();
-        let arg2 = CLValue::from_t("Foo").unwrap();
-        let arg3 = CLValue::from_t(Some(1)).unwrap();
+        let arg1 = CLValue::from_t(&1).unwrap();
+        let arg2 = CLValue::from_t(&"Foo").unwrap();
+        let arg3 = CLValue::from_t(&Some(1)).unwrap();
         let args = {
             let mut map = BTreeMap::new();
             map.insert("bar".into(), arg2.clone());
@@ -249,14 +253,14 @@ mod tests {
             "foo" => 1i32,
             "qwer" => Some(1i32),
         };
-        let tagless = runtime_args_1.to_bytes().unwrap().to_vec();
+        let tagless = bytesrepr::serialize(&runtime_args_1).unwrap();
 
         let mut runtime_args_2 = BTreeMap::new();
-        runtime_args_2.insert(String::from("bar"), CLValue::from_t("Foo").unwrap());
-        runtime_args_2.insert(String::from("foo"), CLValue::from_t(1i32).unwrap());
-        runtime_args_2.insert(String::from("qwer"), CLValue::from_t(Some(1i32)).unwrap());
+        runtime_args_2.insert(String::from("bar"), CLValue::from_t(&"Foo").unwrap());
+        runtime_args_2.insert(String::from("foo"), CLValue::from_t(&1i32).unwrap());
+        runtime_args_2.insert(String::from("qwer"), CLValue::from_t(&Some(1i32)).unwrap());
 
-        assert_eq!(tagless, runtime_args_2.to_bytes().unwrap());
+        assert_eq!(tagless, bytesrepr::serialize(&runtime_args_2).unwrap());
     }
 
     #[test]

@@ -274,7 +274,7 @@ impl AsRef<[u8]> for DeployHash {
 }
 
 impl ToBytes for DeployHash {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         self.0.to_bytes()
     }
 
@@ -364,7 +364,7 @@ impl DeployHeader {
 }
 
 impl ToBytes for DeployHeader {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         let mut buffer = bytesrepr::allocate_buffer(self)?;
         buffer.extend(self.account.to_bytes()?);
         buffer.extend(self.timestamp.to_bytes()?);
@@ -454,7 +454,7 @@ impl Display for Approval {
 }
 
 impl ToBytes for Approval {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         let mut buffer = bytesrepr::allocate_buffer(self)?;
         buffer.extend(self.signer.to_bytes()?);
         buffer.extend(self.signature.to_bytes()?);
@@ -876,7 +876,7 @@ pub struct DeployMetadata {
 }
 
 impl ToBytes for Deploy {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         let mut buffer = bytesrepr::allocate_buffer(self)?;
         buffer.extend(self.header.to_bytes()?);
         buffer.extend(self.hash.to_bytes()?);

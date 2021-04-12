@@ -133,19 +133,20 @@ pub struct GenesisValidator {
 }
 
 impl ToBytes for GenesisValidator {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut buffer = bytesrepr::allocate_buffer(self)?;
-        buffer.extend(self.bonded_amount.to_bytes()?);
-        buffer.extend(self.delegation_rate.to_bytes()?);
-        Ok(buffer)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.bonded_amount.to_bytes(sink)?;
+        self.delegation_rate.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.bonded_amount.serialized_length() + self.delegation_rate.serialized_length()
     }
 }
 
 impl FromBytes for GenesisValidator {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (bonded_amount, remainder) = FromBytes::from_bytes(bytes)?;
         let (delegation_rate, remainder) = FromBytes::from_bytes(remainder)?;
@@ -372,21 +373,22 @@ impl Distribution<GenesisAccount> for Standard {
 }
 
 impl ToBytes for GenesisAccount {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut buffer = bytesrepr::allocate_buffer(self)?;
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         match self {
             GenesisAccount::System => {
-                buffer.push(GenesisAccountTag::System as u8);
+                sink.push(GenesisAccountTag::System as u8);
+                Ok(())
             }
             GenesisAccount::Account {
                 public_key,
                 balance,
                 validator,
             } => {
-                buffer.push(GenesisAccountTag::Account as u8);
-                buffer.extend(public_key.to_bytes()?);
-                buffer.extend(balance.value().to_bytes()?);
-                buffer.extend(validator.to_bytes()?);
+                sink.push(GenesisAccountTag::Account as u8);
+                public_key.to_bytes(sink)?;
+                balance.value().to_bytes(sink)?;
+                validator.to_bytes(sink)
             }
             GenesisAccount::Delegator {
                 validator_public_key,
@@ -394,16 +396,16 @@ impl ToBytes for GenesisAccount {
                 balance,
                 delegated_amount,
             } => {
-                buffer.push(GenesisAccountTag::Delegator as u8);
-                buffer.extend(validator_public_key.to_bytes()?);
-                buffer.extend(delegator_public_key.to_bytes()?);
-                buffer.extend(balance.value().to_bytes()?);
-                buffer.extend(delegated_amount.value().to_bytes()?);
+                sink.push(GenesisAccountTag::Delegator as u8);
+                validator_public_key.to_bytes(sink)?;
+                delegator_public_key.to_bytes(sink)?;
+                balance.value().to_bytes(sink)?;
+                delegated_amount.value().to_bytes(sink)
             }
         }
-        Ok(buffer)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         match self {
             GenesisAccount::System => TAG_LENGTH,
@@ -434,6 +436,7 @@ impl ToBytes for GenesisAccount {
 }
 
 impl FromBytes for GenesisAccount {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (tag, remainder) = u8::from_bytes(bytes)?;
         match tag {
@@ -802,7 +805,7 @@ where
 
                 self.tracking_copy.borrow_mut().write(
                     round_seigniorage_rate_uref.into(),
-                    StoredValue::CLValue(CLValue::from_t(round_seigniorage_rate).map_err(
+                    StoredValue::CLValue(CLValue::from_t(&round_seigniorage_rate).map_err(
                         |_| GenesisError::CLValue(ARG_ROUND_SEIGNIORAGE_RATE.to_string()),
                     )?),
                 );
@@ -818,7 +821,7 @@ where
             self.tracking_copy.borrow_mut().write(
                 total_supply_uref.into(),
                 StoredValue::CLValue(
-                    CLValue::from_t(U512::zero())
+                    CLValue::from_t(&U512::zero())
                         .map_err(|_| GenesisError::CLValue(TOTAL_SUPPLY_KEY.to_string()))?,
                 ),
             );
@@ -1012,7 +1015,7 @@ where
         self.tracking_copy.borrow_mut().write(
             era_id_uref.into(),
             StoredValue::CLValue(
-                CLValue::from_t(INITIAL_ERA_ID)
+                CLValue::from_t(&INITIAL_ERA_ID)
                     .map_err(|_| GenesisError::CLValue(ERA_ID_KEY.to_string()))?,
             ),
         );
@@ -1025,7 +1028,7 @@ where
         self.tracking_copy.borrow_mut().write(
             era_end_timestamp_millis_uref.into(),
             StoredValue::CLValue(
-                CLValue::from_t(INITIAL_ERA_END_TIMESTAMP_MILLIS)
+                CLValue::from_t(&INITIAL_ERA_END_TIMESTAMP_MILLIS)
                     .map_err(|_| GenesisError::CLValue(ERA_END_TIMESTAMP_MILLIS_KEY.to_string()))?,
             ),
         );
@@ -1050,7 +1053,7 @@ where
         self.tracking_copy.borrow_mut().write(
             validator_slots_uref.into(),
             StoredValue::CLValue(
-                CLValue::from_t(validator_slots)
+                CLValue::from_t(&validator_slots)
                     .map_err(|_| GenesisError::CLValue(VALIDATOR_SLOTS_KEY.to_string()))?,
             ),
         );
@@ -1063,7 +1066,7 @@ where
         self.tracking_copy.borrow_mut().write(
             auction_delay_uref.into(),
             StoredValue::CLValue(
-                CLValue::from_t(auction_delay)
+                CLValue::from_t(&auction_delay)
                     .map_err(|_| GenesisError::CLValue(AUCTION_DELAY_KEY.to_string()))?,
             ),
         );
@@ -1076,7 +1079,7 @@ where
         self.tracking_copy.borrow_mut().write(
             locked_funds_period_uref.into(),
             StoredValue::CLValue(
-                CLValue::from_t(locked_funds_period_millis)
+                CLValue::from_t(&locked_funds_period_millis)
                     .map_err(|_| GenesisError::CLValue(LOCKED_FUNDS_PERIOD_KEY.to_string()))?,
             ),
         );
@@ -1093,7 +1096,7 @@ where
         self.tracking_copy.borrow_mut().write(
             unbonding_delay_uref.into(),
             StoredValue::CLValue(
-                CLValue::from_t(unbonding_delay)
+                CLValue::from_t(&unbonding_delay)
                     .map_err(|_| GenesisError::CLValue(UNBONDING_DELAY_KEY.to_string()))?,
             ),
         );

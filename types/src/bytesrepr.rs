@@ -1,9 +1,6 @@
 //! Contains serialization and deserialization code for types used throughout the system.
 mod bytes;
 
-// Can be removed once https://github.com/rust-lang/rustfmt/issues/3362 is resolved.
-#[rustfmt::skip]
-use alloc::vec;
 use alloc::{
     alloc::{alloc, Layout},
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -57,14 +54,8 @@ pub const RESULT_OK_TAG: u8 = 1;
 /// A type which can be serialized to a `Vec<u8>`.
 pub trait ToBytes {
     /// Serializes `&self` to a `Vec<u8>`.
-    fn to_bytes(&self) -> Result<Vec<u8>, Error>;
-    /// Consumes `self` and serializes to a `Vec<u8>`.
-    fn into_bytes(self) -> Result<Vec<u8>, Error>
-    where
-        Self: Sized,
-    {
-        self.to_bytes()
-    }
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error>;
+
     /// Returns the length of the `Vec<u8>` which would be returned from a successful call to
     /// `to_bytes()` or `into_bytes()`.  The data is not actually serialized, so this call is
     /// relatively cheap.
@@ -75,27 +66,11 @@ pub trait ToBytes {
 pub trait FromBytes: Sized {
     /// Deserializes the slice into `Self`.
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error>;
+
     /// Deserializes the `Vec<u8>` into `Self`.
     fn from_vec(bytes: Vec<u8>) -> Result<(Self, Vec<u8>), Error> {
         Self::from_bytes(bytes.as_slice()).map(|(x, remainder)| (x, Vec::from(remainder)))
     }
-}
-
-/// Returns a `Vec<u8>` initialized with sufficient capacity to hold `to_be_serialized` after
-/// serialization.
-pub fn unchecked_allocate_buffer<T: ToBytes>(to_be_serialized: &T) -> Vec<u8> {
-    let serialized_length = to_be_serialized.serialized_length();
-    Vec::with_capacity(serialized_length)
-}
-
-/// Returns a `Vec<u8>` initialized with sufficient capacity to hold `to_be_serialized` after
-/// serialization, or an error if the capacity would exceed `u32::max_value()`.
-pub fn allocate_buffer<T: ToBytes>(to_be_serialized: &T) -> Result<Vec<u8>, Error> {
-    let serialized_length = to_be_serialized.serialized_length();
-    if serialized_length > u32::max_value() as usize {
-        return Err(Error::OutOfMemory);
-    }
-    Ok(Vec::with_capacity(serialized_length))
 }
 
 /// Serialization and deserialization errors.
@@ -117,6 +92,14 @@ pub enum Error {
     OutOfMemory,
 }
 
+/// Serializes `t` into a `Vec<u8>`.
+pub fn serialize(t: &impl ToBytes) -> Result<Vec<u8>, Error> {
+    let serialized_length = t.serialized_length();
+    let mut sink = Vec::with_capacity(serialized_length);
+    t.to_bytes(&mut sink)?;
+    Ok(sink)
+}
+
 /// Deserializes `bytes` into an instance of `T`.
 ///
 /// Returns an error if the bytes cannot be deserialized into `T` or if not all of the input bytes
@@ -130,11 +113,6 @@ pub fn deserialize<T: FromBytes>(bytes: Vec<u8>) -> Result<T, Error> {
     }
 }
 
-/// Serializes `t` into a `Vec<u8>`.
-pub fn serialize(t: impl ToBytes) -> Result<Vec<u8>, Error> {
-    t.into_bytes()
-}
-
 pub(crate) fn safe_split_at(bytes: &[u8], n: usize) -> Result<(&[u8], &[u8]), Error> {
     if n > bytes.len() {
         Err(Error::EarlyEndOfStream)
@@ -144,32 +122,38 @@ pub(crate) fn safe_split_at(bytes: &[u8], n: usize) -> Result<(&[u8], &[u8]), Er
 }
 
 impl ToBytes for () {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        Ok(Vec::new())
+    #[inline(always)]
+    fn to_bytes(&self, _sink: &mut Vec<u8>) -> Result<(), Error> {
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         UNIT_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for () {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         Ok(((), bytes))
     }
 }
 
 impl ToBytes for bool {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        u8::from(*self).to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        u8::from(*self).to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         BOOL_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for bool {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         match bytes.split_first() {
             None => Err(Error::EarlyEndOfStream),
@@ -183,16 +167,20 @@ impl FromBytes for bool {
 }
 
 impl ToBytes for u8 {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        Ok(vec![*self])
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        sink.push(*self);
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         U8_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for u8 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         match bytes.split_first() {
             None => Err(Error::EarlyEndOfStream),
@@ -202,16 +190,20 @@ impl FromBytes for u8 {
 }
 
 impl ToBytes for i32 {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        Ok(self.to_le_bytes().to_vec())
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        sink.extend_from_slice(&self.to_le_bytes());
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         I32_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for i32 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let mut result = [0u8; I32_SERIALIZED_LENGTH];
         let (bytes, remainder) = safe_split_at(bytes, I32_SERIALIZED_LENGTH)?;
@@ -221,16 +213,20 @@ impl FromBytes for i32 {
 }
 
 impl ToBytes for i64 {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        Ok(self.to_le_bytes().to_vec())
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        sink.extend_from_slice(&self.to_le_bytes());
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         I64_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for i64 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let mut result = [0u8; I64_SERIALIZED_LENGTH];
         let (bytes, remainder) = safe_split_at(bytes, I64_SERIALIZED_LENGTH)?;
@@ -240,16 +236,20 @@ impl FromBytes for i64 {
 }
 
 impl ToBytes for u16 {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        Ok(self.to_le_bytes().to_vec())
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        sink.extend_from_slice(&self.to_le_bytes());
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         U16_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for u16 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let mut result = [0u8; U16_SERIALIZED_LENGTH];
         let (bytes, remainder) = safe_split_at(bytes, U16_SERIALIZED_LENGTH)?;
@@ -259,16 +259,20 @@ impl FromBytes for u16 {
 }
 
 impl ToBytes for u32 {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        Ok(self.to_le_bytes().to_vec())
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        sink.extend_from_slice(&self.to_le_bytes());
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         U32_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for u32 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let mut result = [0u8; U32_SERIALIZED_LENGTH];
         let (bytes, remainder) = safe_split_at(bytes, U32_SERIALIZED_LENGTH)?;
@@ -278,16 +282,20 @@ impl FromBytes for u32 {
 }
 
 impl ToBytes for u64 {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        Ok(self.to_le_bytes().to_vec())
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        sink.extend_from_slice(&self.to_le_bytes());
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         U64_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for u64 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let mut result = [0u8; U64_SERIALIZED_LENGTH];
         let (bytes, remainder) = safe_split_at(bytes, U64_SERIALIZED_LENGTH)?;
@@ -296,18 +304,59 @@ impl FromBytes for u64 {
     }
 }
 
-impl ToBytes for String {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let bytes = self.as_bytes();
-        u8_slice_to_bytes(bytes)
+impl ToBytes for &[u8] {
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        let length_prefix = self.len() as u32;
+        length_prefix.to_bytes(sink)?;
+        sink.extend_from_slice(self);
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
-        u8_slice_serialized_length(self.as_bytes())
+        U32_SERIALIZED_LENGTH + self.len()
+    }
+}
+
+impl ToBytes for str {
+    #[inline]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.as_bytes().to_bytes(sink)
+    }
+
+    #[inline]
+    fn serialized_length(&self) -> usize {
+        self.as_bytes().serialized_length()
+    }
+}
+
+impl ToBytes for &str {
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        (*self).to_bytes(sink)
+    }
+
+    #[inline(always)]
+    fn serialized_length(&self) -> usize {
+        (*self).serialized_length()
+    }
+}
+
+impl ToBytes for String {
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.as_bytes().to_bytes(sink)
+    }
+
+    #[inline(always)]
+    fn serialized_length(&self) -> usize {
+        self.as_bytes().serialized_length()
     }
 }
 
 impl FromBytes for String {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (size, remainder) = u32::from_bytes(bytes)?;
         let (str_bytes, remainder) = safe_split_at(remainder, size as usize)?;
@@ -329,38 +378,6 @@ fn iterator_serialized_length<'a, T: 'a + ToBytes>(ts: impl Iterator<Item = &'a 
     U32_SERIALIZED_LENGTH + ts.map(ToBytes::serialized_length).sum::<usize>()
 }
 
-impl<T: ToBytes> ToBytes for Vec<T> {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        ensure_efficient_serialization::<T>();
-
-        let mut result = try_vec_with_capacity(self.serialized_length())?;
-        result.append(&mut (self.len() as u32).to_bytes()?);
-
-        for item in self.iter() {
-            result.append(&mut item.to_bytes()?);
-        }
-
-        Ok(result)
-    }
-
-    fn into_bytes(self) -> Result<Vec<u8>, Error> {
-        ensure_efficient_serialization::<T>();
-
-        let mut result = allocate_buffer(&self)?;
-        result.append(&mut (self.len() as u32).to_bytes()?);
-
-        for item in self {
-            result.append(&mut item.into_bytes()?);
-        }
-
-        Ok(result)
-    }
-
-    fn serialized_length(&self) -> usize {
-        iterator_serialized_length(self.iter())
-    }
-}
-
 // TODO Replace `try_vec_with_capacity` with `Vec::try_reserve_exact` once it's in stable.
 fn try_vec_with_capacity<T>(capacity: usize) -> Result<Vec<T>, Error> {
     // see https://doc.rust-lang.org/src/alloc/raw_vec.rs.html#75-98
@@ -369,6 +386,8 @@ fn try_vec_with_capacity<T>(capacity: usize) -> Result<Vec<T>, Error> {
 
     let ptr = if alloc_size == 0 {
         NonNull::<T>::dangling()
+    } else if alloc_size > u32::max_value() as usize {
+        return Err(Error::OutOfMemory);
     } else {
         let align = mem::align_of::<T>();
         let layout = Layout::from_size_align(alloc_size, align).map_err(|_| Error::OutOfMemory)?;
@@ -385,7 +404,29 @@ fn vec_from_vec<T: FromBytes>(bytes: Vec<u8>) -> Result<(Vec<T>, Vec<u8>), Error
     Vec::<T>::from_bytes(bytes.as_slice()).map(|(x, remainder)| (x, Vec::from(remainder)))
 }
 
+impl<T: ToBytes> ToBytes for Vec<T> {
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        ensure_efficient_serialization::<T>();
+
+        let length_prefix = self.len() as u32;
+        length_prefix.to_bytes(sink)?;
+
+        for item in self.iter() {
+            item.to_bytes(sink)?;
+        }
+
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn serialized_length(&self) -> usize {
+        iterator_serialized_length(self.iter())
+    }
+}
+
 impl<T: FromBytes> FromBytes for Vec<T> {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         ensure_efficient_serialization::<T>();
 
@@ -401,39 +442,39 @@ impl<T: FromBytes> FromBytes for Vec<T> {
         Ok((result, stream))
     }
 
+    #[inline(always)]
     fn from_vec(bytes: Vec<u8>) -> Result<(Self, Vec<u8>), Error> {
         vec_from_vec(bytes)
     }
 }
 
 impl<T: ToBytes> ToBytes for VecDeque<T> {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let (slice1, slice2) = self.as_slices();
-        let mut result = allocate_buffer(self)?;
-        result.append(&mut (self.len() as u32).to_bytes()?);
-        for item in slice1.iter().chain(slice2.iter()) {
-            result.append(&mut item.to_bytes()?);
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        let length_prefix = self.len() as u32;
+        length_prefix.to_bytes(sink)?;
+
+        for item in self.iter() {
+            item.to_bytes(sink)?;
         }
-        Ok(result)
+
+        Ok(())
     }
 
-    fn into_bytes(self) -> Result<Vec<u8>, Error> {
-        let vec: Vec<T> = self.into();
-        vec.to_bytes()
-    }
-
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
-        let (slice1, slice2) = self.as_slices();
-        iterator_serialized_length(slice1.iter().chain(slice2.iter()))
+        iterator_serialized_length(self.iter())
     }
 }
 
 impl<T: FromBytes> FromBytes for VecDeque<T> {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (vec, bytes) = Vec::from_bytes(bytes)?;
         Ok((VecDeque::from(vec), bytes))
     }
 
+    #[inline(always)]
     fn from_vec(bytes: Vec<u8>) -> Result<(Self, Vec<u8>), Error> {
         let (vec, bytes) = vec_from_vec(bytes)?;
         Ok((VecDeque::from(vec), bytes))
@@ -445,8 +486,9 @@ macro_rules! impl_to_from_bytes_for_array {
         $(
             impl ToBytes for [u8; $N] {
                 #[inline(always)]
-                fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-                    Ok(self.to_vec())
+                fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+                    sink.extend_from_slice(self);
+                    Ok(())
                 }
 
                 #[inline(always)]
@@ -454,6 +496,7 @@ macro_rules! impl_to_from_bytes_for_array {
             }
 
             impl FromBytes for [u8; $N] {
+                #[inline(always)]
                 fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
                     let (bytes, rem) = safe_split_at(bytes, $N)?;
                     // SAFETY: safe_split_at makes sure `bytes` is exactly $N bytes.
@@ -476,25 +519,26 @@ impl_to_from_bytes_for_array! {
 }
 
 impl<V: ToBytes> ToBytes for BTreeSet<V> {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = allocate_buffer(self)?;
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        let length_prefix = self.len() as u32;
+        length_prefix.to_bytes(sink)?;
 
-        let num_keys = self.len() as u32;
-        result.append(&mut num_keys.to_bytes()?);
-
-        for value in self.iter() {
-            result.append(&mut value.to_bytes()?);
+        for item in self.iter() {
+            item.to_bytes(sink)?;
         }
 
-        Ok(result)
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
-        U32_SERIALIZED_LENGTH + self.iter().map(|v| v.serialized_length()).sum::<usize>()
+        iterator_serialized_length(self.iter())
     }
 }
 
 impl<V: FromBytes + Ord> FromBytes for BTreeSet<V> {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (num_keys, mut stream) = u32::from_bytes(bytes)?;
         let mut result = BTreeSet::new();
@@ -507,25 +551,21 @@ impl<V: FromBytes + Ord> FromBytes for BTreeSet<V> {
     }
 }
 
-impl<K, V> ToBytes for BTreeMap<K, V>
-where
-    K: ToBytes,
-    V: ToBytes,
-{
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = allocate_buffer(self)?;
-
-        let num_keys = self.len() as u32;
-        result.append(&mut num_keys.to_bytes()?);
+impl<K: ToBytes, V: ToBytes> ToBytes for BTreeMap<K, V> {
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        let length_prefix = self.len() as u32;
+        length_prefix.to_bytes(sink)?;
 
         for (key, value) in self.iter() {
-            result.append(&mut key.to_bytes()?);
-            result.append(&mut value.to_bytes()?);
+            key.to_bytes(sink)?;
+            value.to_bytes(sink)?;
         }
 
-        Ok(result)
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         U32_SERIALIZED_LENGTH
             + self
@@ -540,6 +580,7 @@ where
     K: FromBytes + Ord,
     V: FromBytes,
 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (num_keys, mut stream) = u32::from_bytes(bytes)?;
         let mut result = BTreeMap::new();
@@ -554,21 +595,19 @@ where
 }
 
 impl<T: ToBytes> ToBytes for Option<T> {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
         match self {
-            None => Ok(vec![OPTION_NONE_TAG]),
+            None => sink.push(OPTION_NONE_TAG),
             Some(v) => {
-                let mut result = allocate_buffer(self)?;
-                result.push(OPTION_SOME_TAG);
-
-                let mut value = v.to_bytes()?;
-                result.append(&mut value);
-
-                Ok(result)
+                sink.push(OPTION_SOME_TAG);
+                v.to_bytes(sink)?;
             }
         }
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         U8_SERIALIZED_LENGTH
             + match self {
@@ -579,6 +618,7 @@ impl<T: ToBytes> ToBytes for Option<T> {
 }
 
 impl<T: FromBytes> FromBytes for Option<T> {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (tag, rem) = u8::from_bytes(bytes)?;
         match tag {
@@ -593,27 +633,33 @@ impl<T: FromBytes> FromBytes for Option<T> {
 }
 
 impl<T: ToBytes, E: ToBytes> ToBytes for Result<T, E> {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = allocate_buffer(self)?;
-        let (variant, mut value) = match self {
-            Err(error) => (RESULT_ERR_TAG, error.to_bytes()?),
-            Ok(result) => (RESULT_OK_TAG, result.to_bytes()?),
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        match self {
+            Err(error) => {
+                sink.push(RESULT_ERR_TAG);
+                error.to_bytes(sink)?;
+            }
+            Ok(ok) => {
+                sink.push(RESULT_OK_TAG);
+                ok.to_bytes(sink)?;
+            }
         };
-        result.push(variant);
-        result.append(&mut value);
-        Ok(result)
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         U8_SERIALIZED_LENGTH
             + match self {
-                Ok(ok) => ok.serialized_length(),
                 Err(error) => error.serialized_length(),
+                Ok(ok) => ok.serialized_length(),
             }
     }
 }
 
 impl<T: FromBytes, E: FromBytes> FromBytes for Result<T, E> {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (variant, rem) = u8::from_bytes(bytes)?;
         match variant {
@@ -631,16 +677,19 @@ impl<T: FromBytes, E: FromBytes> FromBytes for Result<T, E> {
 }
 
 impl<T1: ToBytes> ToBytes for (T1,) {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        self.0.to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length()
     }
 }
 
 impl<T1: FromBytes> FromBytes for (T1,) {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (t1, remainder) = T1::from_bytes(bytes)?;
         Ok(((t1,), remainder))
@@ -648,19 +697,20 @@ impl<T1: FromBytes> FromBytes for (T1,) {
 }
 
 impl<T1: ToBytes, T2: ToBytes> ToBytes for (T1, T2) {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = allocate_buffer(self)?;
-        result.append(&mut self.0.to_bytes()?);
-        result.append(&mut self.1.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)?;
+        self.1.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length() + self.1.serialized_length()
     }
 }
 
 impl<T1: FromBytes, T2: FromBytes> FromBytes for (T1, T2) {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (t1, remainder) = T1::from_bytes(bytes)?;
         let (t2, remainder) = T2::from_bytes(remainder)?;
@@ -669,20 +719,21 @@ impl<T1: FromBytes, T2: FromBytes> FromBytes for (T1, T2) {
 }
 
 impl<T1: ToBytes, T2: ToBytes, T3: ToBytes> ToBytes for (T1, T2, T3) {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = allocate_buffer(self)?;
-        result.append(&mut self.0.to_bytes()?);
-        result.append(&mut self.1.to_bytes()?);
-        result.append(&mut self.2.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)?;
+        self.1.to_bytes(sink)?;
+        self.2.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length() + self.1.serialized_length() + self.2.serialized_length()
     }
 }
 
 impl<T1: FromBytes, T2: FromBytes, T3: FromBytes> FromBytes for (T1, T2, T3) {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (t1, remainder) = T1::from_bytes(bytes)?;
         let (t2, remainder) = T2::from_bytes(remainder)?;
@@ -692,15 +743,15 @@ impl<T1: FromBytes, T2: FromBytes, T3: FromBytes> FromBytes for (T1, T2, T3) {
 }
 
 impl<T1: ToBytes, T2: ToBytes, T3: ToBytes, T4: ToBytes> ToBytes for (T1, T2, T3, T4) {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = allocate_buffer(self)?;
-        result.append(&mut self.0.to_bytes()?);
-        result.append(&mut self.1.to_bytes()?);
-        result.append(&mut self.2.to_bytes()?);
-        result.append(&mut self.3.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)?;
+        self.1.to_bytes(sink)?;
+        self.2.to_bytes(sink)?;
+        self.3.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length()
             + self.1.serialized_length()
@@ -710,6 +761,7 @@ impl<T1: ToBytes, T2: ToBytes, T3: ToBytes, T4: ToBytes> ToBytes for (T1, T2, T3
 }
 
 impl<T1: FromBytes, T2: FromBytes, T3: FromBytes, T4: FromBytes> FromBytes for (T1, T2, T3, T4) {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (t1, remainder) = T1::from_bytes(bytes)?;
         let (t2, remainder) = T2::from_bytes(remainder)?;
@@ -722,16 +774,16 @@ impl<T1: FromBytes, T2: FromBytes, T3: FromBytes, T4: FromBytes> FromBytes for (
 impl<T1: ToBytes, T2: ToBytes, T3: ToBytes, T4: ToBytes, T5: ToBytes> ToBytes
     for (T1, T2, T3, T4, T5)
 {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = allocate_buffer(self)?;
-        result.append(&mut self.0.to_bytes()?);
-        result.append(&mut self.1.to_bytes()?);
-        result.append(&mut self.2.to_bytes()?);
-        result.append(&mut self.3.to_bytes()?);
-        result.append(&mut self.4.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)?;
+        self.1.to_bytes(sink)?;
+        self.2.to_bytes(sink)?;
+        self.3.to_bytes(sink)?;
+        self.4.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length()
             + self.1.serialized_length()
@@ -744,6 +796,7 @@ impl<T1: ToBytes, T2: ToBytes, T3: ToBytes, T4: ToBytes, T5: ToBytes> ToBytes
 impl<T1: FromBytes, T2: FromBytes, T3: FromBytes, T4: FromBytes, T5: FromBytes> FromBytes
     for (T1, T2, T3, T4, T5)
 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (t1, remainder) = T1::from_bytes(bytes)?;
         let (t2, remainder) = T2::from_bytes(remainder)?;
@@ -757,17 +810,17 @@ impl<T1: FromBytes, T2: FromBytes, T3: FromBytes, T4: FromBytes, T5: FromBytes> 
 impl<T1: ToBytes, T2: ToBytes, T3: ToBytes, T4: ToBytes, T5: ToBytes, T6: ToBytes> ToBytes
     for (T1, T2, T3, T4, T5, T6)
 {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = allocate_buffer(self)?;
-        result.append(&mut self.0.to_bytes()?);
-        result.append(&mut self.1.to_bytes()?);
-        result.append(&mut self.2.to_bytes()?);
-        result.append(&mut self.3.to_bytes()?);
-        result.append(&mut self.4.to_bytes()?);
-        result.append(&mut self.5.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)?;
+        self.1.to_bytes(sink)?;
+        self.2.to_bytes(sink)?;
+        self.3.to_bytes(sink)?;
+        self.4.to_bytes(sink)?;
+        self.5.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length()
             + self.1.serialized_length()
@@ -781,6 +834,7 @@ impl<T1: ToBytes, T2: ToBytes, T3: ToBytes, T4: ToBytes, T5: ToBytes, T6: ToByte
 impl<T1: FromBytes, T2: FromBytes, T3: FromBytes, T4: FromBytes, T5: FromBytes, T6: FromBytes>
     FromBytes for (T1, T2, T3, T4, T5, T6)
 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (t1, remainder) = T1::from_bytes(bytes)?;
         let (t2, remainder) = T2::from_bytes(remainder)?;
@@ -795,18 +849,18 @@ impl<T1: FromBytes, T2: FromBytes, T3: FromBytes, T4: FromBytes, T5: FromBytes, 
 impl<T1: ToBytes, T2: ToBytes, T3: ToBytes, T4: ToBytes, T5: ToBytes, T6: ToBytes, T7: ToBytes>
     ToBytes for (T1, T2, T3, T4, T5, T6, T7)
 {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = allocate_buffer(self)?;
-        result.append(&mut self.0.to_bytes()?);
-        result.append(&mut self.1.to_bytes()?);
-        result.append(&mut self.2.to_bytes()?);
-        result.append(&mut self.3.to_bytes()?);
-        result.append(&mut self.4.to_bytes()?);
-        result.append(&mut self.5.to_bytes()?);
-        result.append(&mut self.6.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)?;
+        self.1.to_bytes(sink)?;
+        self.2.to_bytes(sink)?;
+        self.3.to_bytes(sink)?;
+        self.4.to_bytes(sink)?;
+        self.5.to_bytes(sink)?;
+        self.6.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length()
             + self.1.serialized_length()
@@ -828,6 +882,7 @@ impl<
         T7: FromBytes,
     > FromBytes for (T1, T2, T3, T4, T5, T6, T7)
 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (t1, remainder) = T1::from_bytes(bytes)?;
         let (t2, remainder) = T2::from_bytes(remainder)?;
@@ -851,19 +906,19 @@ impl<
         T8: ToBytes,
     > ToBytes for (T1, T2, T3, T4, T5, T6, T7, T8)
 {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = allocate_buffer(self)?;
-        result.append(&mut self.0.to_bytes()?);
-        result.append(&mut self.1.to_bytes()?);
-        result.append(&mut self.2.to_bytes()?);
-        result.append(&mut self.3.to_bytes()?);
-        result.append(&mut self.4.to_bytes()?);
-        result.append(&mut self.5.to_bytes()?);
-        result.append(&mut self.6.to_bytes()?);
-        result.append(&mut self.7.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)?;
+        self.1.to_bytes(sink)?;
+        self.2.to_bytes(sink)?;
+        self.3.to_bytes(sink)?;
+        self.4.to_bytes(sink)?;
+        self.5.to_bytes(sink)?;
+        self.6.to_bytes(sink)?;
+        self.7.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length()
             + self.1.serialized_length()
@@ -887,6 +942,7 @@ impl<
         T8: FromBytes,
     > FromBytes for (T1, T2, T3, T4, T5, T6, T7, T8)
 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (t1, remainder) = T1::from_bytes(bytes)?;
         let (t2, remainder) = T2::from_bytes(remainder)?;
@@ -912,20 +968,20 @@ impl<
         T9: ToBytes,
     > ToBytes for (T1, T2, T3, T4, T5, T6, T7, T8, T9)
 {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = allocate_buffer(self)?;
-        result.append(&mut self.0.to_bytes()?);
-        result.append(&mut self.1.to_bytes()?);
-        result.append(&mut self.2.to_bytes()?);
-        result.append(&mut self.3.to_bytes()?);
-        result.append(&mut self.4.to_bytes()?);
-        result.append(&mut self.5.to_bytes()?);
-        result.append(&mut self.6.to_bytes()?);
-        result.append(&mut self.7.to_bytes()?);
-        result.append(&mut self.8.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)?;
+        self.1.to_bytes(sink)?;
+        self.2.to_bytes(sink)?;
+        self.3.to_bytes(sink)?;
+        self.4.to_bytes(sink)?;
+        self.5.to_bytes(sink)?;
+        self.6.to_bytes(sink)?;
+        self.7.to_bytes(sink)?;
+        self.8.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length()
             + self.1.serialized_length()
@@ -951,6 +1007,7 @@ impl<
         T9: FromBytes,
     > FromBytes for (T1, T2, T3, T4, T5, T6, T7, T8, T9)
 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (t1, remainder) = T1::from_bytes(bytes)?;
         let (t2, remainder) = T2::from_bytes(remainder)?;
@@ -978,21 +1035,21 @@ impl<
         T10: ToBytes,
     > ToBytes for (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10)
 {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = allocate_buffer(self)?;
-        result.append(&mut self.0.to_bytes()?);
-        result.append(&mut self.1.to_bytes()?);
-        result.append(&mut self.2.to_bytes()?);
-        result.append(&mut self.3.to_bytes()?);
-        result.append(&mut self.4.to_bytes()?);
-        result.append(&mut self.5.to_bytes()?);
-        result.append(&mut self.6.to_bytes()?);
-        result.append(&mut self.7.to_bytes()?);
-        result.append(&mut self.8.to_bytes()?);
-        result.append(&mut self.9.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.0.to_bytes(sink)?;
+        self.1.to_bytes(sink)?;
+        self.2.to_bytes(sink)?;
+        self.3.to_bytes(sink)?;
+        self.4.to_bytes(sink)?;
+        self.5.to_bytes(sink)?;
+        self.6.to_bytes(sink)?;
+        self.7.to_bytes(sink)?;
+        self.8.to_bytes(sink)?;
+        self.9.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length()
             + self.1.serialized_length()
@@ -1020,6 +1077,7 @@ impl<
         T10: FromBytes,
     > FromBytes for (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10)
 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (t1, remainder) = T1::from_bytes(bytes)?;
         let (t2, remainder) = T2::from_bytes(remainder)?;
@@ -1035,41 +1093,19 @@ impl<
     }
 }
 
-impl ToBytes for str {
-    #[inline]
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        u8_slice_to_bytes(self.as_bytes())
-    }
-
-    #[inline]
-    fn serialized_length(&self) -> usize {
-        u8_slice_serialized_length(self.as_bytes())
-    }
-}
-
-impl ToBytes for &str {
-    #[inline(always)]
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        (*self).to_bytes()
-    }
-
-    #[inline(always)]
-    fn serialized_length(&self) -> usize {
-        (*self).serialized_length()
-    }
-}
-
 impl<T> ToBytes for Ratio<T>
 where
     T: Clone + Integer + ToBytes,
 {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
         if self.denom().is_zero() {
             return Err(Error::Formatting);
         }
-        (self.numer().clone(), self.denom().clone()).into_bytes()
+        (self.numer().clone(), self.denom().clone()).to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         (self.numer().clone(), self.denom().clone()).serialized_length()
     }
@@ -1079,6 +1115,7 @@ impl<T> FromBytes for Ratio<T>
 where
     T: Clone + FromBytes + Integer,
 {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let ((numer, denom), rem): ((T, T), &[u8]) = FromBytes::from_bytes(bytes)?;
         if denom.is_zero() {
@@ -1088,45 +1125,6 @@ where
     }
 }
 
-/// Serializes a slice of bytes with a length prefix.
-///
-/// This function is serializing a slice of bytes with an addition of a 4 byte length prefix.
-///
-/// For safety you should prefer to use [`vec_u8_to_bytes`]. For efficiency reasons you should also
-/// avoid using serializing Vec<u8>.
-fn u8_slice_to_bytes(bytes: &[u8]) -> Result<Vec<u8>, Error> {
-    let serialized_length = u8_slice_serialized_length(bytes);
-    let mut vec = try_vec_with_capacity(serialized_length)?;
-    let length_prefix = bytes.len() as u32;
-    let length_prefix_bytes = length_prefix.to_le_bytes();
-    vec.extend_from_slice(&length_prefix_bytes);
-    vec.extend_from_slice(bytes);
-    Ok(vec)
-}
-
-/// Serializes a vector of bytes with a length prefix.
-///
-/// For efficiency you should avoid serializing Vec<u8>.
-#[allow(clippy::ptr_arg)]
-#[inline]
-pub(crate) fn vec_u8_to_bytes(vec: &Vec<u8>) -> Result<Vec<u8>, Error> {
-    u8_slice_to_bytes(vec.as_slice())
-}
-
-/// Returns serialized length of serialized slice of bytes.
-///
-/// This function adds a length prefix in the beggining.
-#[inline(always)]
-fn u8_slice_serialized_length(bytes: &[u8]) -> usize {
-    U32_SERIALIZED_LENGTH + bytes.len()
-}
-
-#[allow(clippy::ptr_arg)]
-#[inline]
-pub(crate) fn vec_u8_serialized_length(vec: &Vec<u8>) -> usize {
-    u8_slice_serialized_length(vec.as_slice())
-}
-
 // This test helper is not intended to be used by third party crates.
 #[doc(hidden)]
 /// Returns `true` if a we can serialize and then deserialize a value
@@ -1134,7 +1132,7 @@ pub fn test_serialization_roundtrip<T>(t: &T)
 where
     T: alloc::fmt::Debug + ToBytes + FromBytes + PartialEq,
 {
-    let serialized = ToBytes::to_bytes(t).expect("Unable to serialize data");
+    let serialized = serialize(t).expect("Unable to serialize data");
     assert_eq!(
         serialized.len(),
         t.serialized_length(),
@@ -1155,12 +1153,12 @@ mod tests {
     #[test]
     fn should_not_serialize_zero_denominator() {
         let malicious = Ratio::new_raw(1, 0);
-        assert_eq!(malicious.to_bytes().unwrap_err(), Error::Formatting);
+        assert_eq!(serialize(&malicious).unwrap_err(), Error::Formatting);
     }
 
     #[test]
     fn should_not_deserialize_zero_denominator() {
-        let malicious_bytes = (1u64, 0u64).to_bytes().unwrap();
+        let malicious_bytes = serialize(&(1u64, 0u64)).unwrap();
         let result: Result<Ratio<u64>, Error> = super::deserialize(malicious_bytes);
         assert_eq!(result.unwrap_err(), Error::Formatting);
     }
@@ -1170,7 +1168,7 @@ mod tests {
     #[should_panic(expected = "You should use Bytes newtype wrapper for efficiency")]
     fn should_fail_to_serialize_slice_of_u8() {
         let bytes = b"0123456789".to_vec();
-        bytes.to_bytes().unwrap();
+        serialize(&bytes).unwrap();
     }
 }
 
@@ -1181,7 +1179,7 @@ mod proptests {
     use proptest::{collection::vec, prelude::*};
 
     use crate::{
-        bytesrepr::{self, bytes::gens::bytes_arb, ToBytes},
+        bytesrepr::{self, bytes::gens::bytes_arb},
         gens::*,
     };
 
@@ -1271,7 +1269,7 @@ mod proptests {
         #[test]
         fn test_str(s in "\\PC*") {
             let not_a_string_object = s.as_str();
-            not_a_string_object.to_bytes().expect("should serialize a str");
+            bytesrepr::serialize(&not_a_string_object).expect("should serialize a str");
         }
 
         #[test]

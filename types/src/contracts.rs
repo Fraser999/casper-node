@@ -22,7 +22,10 @@ use serde::{de::Error as SerdeError, Deserialize, Deserializer, Serialize, Seria
 use crate::{
     account,
     account::TryFromSliceForAccountHashError,
-    bytesrepr::{self, FromBytes, ToBytes, U32_SERIALIZED_LENGTH},
+    bytesrepr::{
+        self, FromBytes, ToBytes, BOOL_SERIALIZED_LENGTH, U32_SERIALIZED_LENGTH,
+        U8_SERIALIZED_LENGTH,
+    },
     contract_wasm::ContractWasmHash,
     uref,
     uref::URef,
@@ -164,16 +167,19 @@ impl From<Group> for String {
 }
 
 impl ToBytes for Group {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        self.0.to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.0.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length()
     }
 }
 
 impl FromBytes for Group {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         String::from_bytes(bytes).map(|(label, bytes)| (Group(label), bytes))
     }
@@ -223,19 +229,20 @@ pub const CONTRACT_VERSION_KEY_SERIALIZED_LENGTH: usize =
     U32_SERIALIZED_LENGTH + U32_SERIALIZED_LENGTH;
 
 impl ToBytes for ContractVersionKey {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut ret = bytesrepr::unchecked_allocate_buffer(self);
-        ret.append(&mut self.0.to_bytes()?);
-        ret.append(&mut self.1.to_bytes()?);
-        Ok(ret)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.0.to_bytes(sink)?;
+        self.1.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         CONTRACT_VERSION_KEY_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for ContractVersionKey {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (major, rem): (u32, &[u8]) = FromBytes::from_bytes(bytes)?;
         let (contract, rem): (ContractVersion, &[u8]) = FromBytes::from_bytes(rem)?;
@@ -320,8 +327,8 @@ impl CLTyped for ContractHash {
 
 impl ToBytes for ContractHash {
     #[inline(always)]
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        self.0.to_bytes()
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.0.to_bytes(sink)
     }
 
     #[inline(always)]
@@ -331,6 +338,7 @@ impl ToBytes for ContractHash {
 }
 
 impl FromBytes for ContractHash {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (bytes, rem) = FromBytes::from_bytes(bytes)?;
         Ok((ContractHash::new(bytes), rem))
@@ -462,8 +470,8 @@ impl CLTyped for ContractPackageHash {
 
 impl ToBytes for ContractPackageHash {
     #[inline(always)]
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        self.0.to_bytes()
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.0.to_bytes(sink)
     }
 
     #[inline(always)]
@@ -473,6 +481,7 @@ impl ToBytes for ContractPackageHash {
 }
 
 impl FromBytes for ContractPackageHash {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (bytes, rem) = FromBytes::from_bytes(bytes)?;
         Ok((ContractPackageHash::new(bytes), rem))
@@ -575,24 +584,22 @@ impl Default for ContractPackageStatus {
 }
 
 impl ToBytes for ContractPackageStatus {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         match self {
-            ContractPackageStatus::Unlocked => result.append(&mut false.to_bytes()?),
-            ContractPackageStatus::Locked => result.append(&mut true.to_bytes()?),
+            ContractPackageStatus::Unlocked => false.to_bytes(sink),
+            ContractPackageStatus::Locked => true.to_bytes(sink),
         }
-        Ok(result)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
-        match self {
-            ContractPackageStatus::Unlocked => false.serialized_length(),
-            ContractPackageStatus::Locked => true.serialized_length(),
-        }
+        BOOL_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for ContractPackageStatus {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (val, bytes) = bool::from_bytes(bytes)?;
         let status = ContractPackageStatus::new(val);
@@ -793,18 +800,16 @@ impl ContractPackage {
 }
 
 impl ToBytes for ContractPackage {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
-
-        result.append(&mut self.access_key.to_bytes()?);
-        result.append(&mut self.versions.to_bytes()?);
-        result.append(&mut self.disabled_versions.to_bytes()?);
-        result.append(&mut self.groups.to_bytes()?);
-        result.append(&mut self.lock_status.to_bytes()?);
-
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.access_key.to_bytes(sink)?;
+        self.versions.to_bytes(sink)?;
+        self.disabled_versions.to_bytes(sink)?;
+        self.groups.to_bytes(sink)?;
+        self.lock_status.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.access_key.serialized_length()
             + self.versions.serialized_length()
@@ -815,6 +820,7 @@ impl ToBytes for ContractPackage {
 }
 
 impl FromBytes for ContractPackage {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (access_key, bytes) = URef::from_bytes(bytes)?;
         let (versions, bytes) = ContractVersions::from_bytes(bytes)?;
@@ -850,15 +856,19 @@ impl Default for EntryPoints {
 }
 
 impl ToBytes for EntryPoints {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        self.0.to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.0.to_bytes(sink)
     }
+
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.0.serialized_length()
     }
 }
 
 impl FromBytes for EntryPoints {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (entry_points_map, rem) = EntryPointsMap::from_bytes(bytes)?;
         Ok((EntryPoints(entry_points_map), rem))
@@ -1030,26 +1040,27 @@ impl Contract {
 }
 
 impl ToBytes for Contract {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
-        result.append(&mut self.contract_package_hash.to_bytes()?);
-        result.append(&mut self.contract_wasm_hash.to_bytes()?);
-        result.append(&mut self.named_keys.to_bytes()?);
-        result.append(&mut self.entry_points.to_bytes()?);
-        result.append(&mut self.protocol_version.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.contract_package_hash.to_bytes(sink)?;
+        self.contract_wasm_hash.to_bytes(sink)?;
+        self.named_keys.to_bytes(sink)?;
+        self.entry_points.to_bytes(sink)?;
+        self.protocol_version.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
-        ToBytes::serialized_length(&self.entry_points)
-            + ToBytes::serialized_length(&self.contract_package_hash)
-            + ToBytes::serialized_length(&self.contract_wasm_hash)
-            + ToBytes::serialized_length(&self.protocol_version)
-            + ToBytes::serialized_length(&self.named_keys)
+        self.entry_points.serialized_length()
+            + self.contract_package_hash.serialized_length()
+            + self.contract_wasm_hash.serialized_length()
+            + self.protocol_version.serialized_length()
+            + self.named_keys.serialized_length()
     }
 }
 
 impl FromBytes for Contract {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (contract_package_hash, bytes) = FromBytes::from_bytes(bytes)?;
         let (contract_wasm_hash, bytes) = FromBytes::from_bytes(bytes)?;
@@ -1093,16 +1104,20 @@ pub enum EntryPointType {
 }
 
 impl ToBytes for EntryPointType {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        (*self as u8).to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        sink.push(*self as u8);
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
-        1
+        U8_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for EntryPointType {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (value, bytes) = u8::from_bytes(bytes)?;
         match value {
@@ -1215,17 +1230,16 @@ impl Default for EntryPoint {
 }
 
 impl ToBytes for EntryPoint {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
-        result.append(&mut self.name.to_bytes()?);
-        result.append(&mut self.args.to_bytes()?);
-        self.ret.append_bytes(&mut result)?;
-        result.append(&mut self.access.to_bytes()?);
-        result.append(&mut self.entry_point_type.to_bytes()?);
-
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.name.to_bytes(sink)?;
+        self.args.to_bytes(sink)?;
+        self.ret.to_bytes(sink)?;
+        self.access.to_bytes(sink)?;
+        self.entry_point_type.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.name.serialized_length()
             + self.args.serialized_length()
@@ -1236,6 +1250,7 @@ impl ToBytes for EntryPoint {
 }
 
 impl FromBytes for EntryPoint {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (name, bytes) = String::from_bytes(bytes)?;
         let (args, bytes) = Vec::<Parameter>::from_bytes(bytes)?;
@@ -1269,8 +1284,8 @@ pub enum EntryPointAccess {
     Groups(Vec<Group>),
 }
 
-const ENTRYPOINTACCESS_PUBLIC_TAG: u8 = 1;
-const ENTRYPOINTACCESS_GROUPS_TAG: u8 = 2;
+const ENTRY_POINT_ACCESS_PUBLIC_TAG: u8 = 1;
+const ENTRY_POINT_ACCESS_GROUPS_TAG: u8 = 2;
 
 impl EntryPointAccess {
     /// Constructor for access granted to only listed groups.
@@ -1281,36 +1296,37 @@ impl EntryPointAccess {
 }
 
 impl ToBytes for EntryPointAccess {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
-
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         match self {
             EntryPointAccess::Public => {
-                result.push(ENTRYPOINTACCESS_PUBLIC_TAG);
+                sink.push(ENTRY_POINT_ACCESS_PUBLIC_TAG);
+                Ok(())
             }
             EntryPointAccess::Groups(groups) => {
-                result.push(ENTRYPOINTACCESS_GROUPS_TAG);
-                result.append(&mut groups.to_bytes()?);
+                sink.push(ENTRY_POINT_ACCESS_GROUPS_TAG);
+                groups.to_bytes(sink)
             }
         }
-        Ok(result)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         match self {
-            EntryPointAccess::Public => 1,
-            EntryPointAccess::Groups(groups) => 1 + groups.serialized_length(),
+            EntryPointAccess::Public => U8_SERIALIZED_LENGTH,
+            EntryPointAccess::Groups(groups) => U8_SERIALIZED_LENGTH + groups.serialized_length(),
         }
     }
 }
 
 impl FromBytes for EntryPointAccess {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (tag, bytes) = u8::from_bytes(bytes)?;
 
         match tag {
-            ENTRYPOINTACCESS_PUBLIC_TAG => Ok((EntryPointAccess::Public, bytes)),
-            ENTRYPOINTACCESS_GROUPS_TAG => {
+            ENTRY_POINT_ACCESS_PUBLIC_TAG => Ok((EntryPointAccess::Public, bytes)),
+            ENTRY_POINT_ACCESS_GROUPS_TAG => {
                 let (groups, bytes) = Vec::<Group>::from_bytes(bytes)?;
                 let result = EntryPointAccess::Groups(groups);
                 Ok((result, bytes))
@@ -1350,19 +1366,20 @@ impl From<Parameter> for (String, CLType) {
 }
 
 impl ToBytes for Parameter {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = ToBytes::to_bytes(&self.name)?;
-        self.cl_type.append_bytes(&mut result)?;
-
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.name.to_bytes(sink)?;
+        self.cl_type.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         ToBytes::serialized_length(&self.name) + self.cl_type.serialized_length()
     }
 }
 
 impl FromBytes for Parameter {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (name, bytes) = String::from_bytes(bytes)?;
         let (cl_type, bytes) = CLType::from_bytes(bytes)?;
@@ -1464,7 +1481,7 @@ mod tests {
     #[test]
     fn roundtrip_serialization() {
         let contract_package = make_contract_package();
-        let bytes = contract_package.to_bytes().expect("should serialize");
+        let bytes = bytesrepr::serialize(&contract_package).expect("should serialize");
         let (decoded_package, rem) =
             ContractPackage::from_bytes(&bytes).expect("should deserialize");
         assert_eq!(contract_package, decoded_package);

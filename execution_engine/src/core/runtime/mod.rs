@@ -19,7 +19,7 @@ use wasmi::{ImportsBuilder, MemoryRef, ModuleInstance, ModuleRef, Trap, TrapKind
 
 use casper_types::{
     account::{AccountHash, ActionType, Weight},
-    bytesrepr::{self, FromBytes, ToBytes},
+    bytesrepr::{self, FromBytes},
     contracts::{
         self, Contract, ContractPackage, ContractPackageStatus, ContractVersion, ContractVersions,
         DisabledVersions, EntryPoint, EntryPointAccess, EntryPoints, Group, Groups, NamedKeys,
@@ -1103,7 +1103,7 @@ where
             None => return Ok(Err(ApiError::MissingKey)),
         };
 
-        let key_bytes = match key.to_bytes() {
+        let key_bytes = match bytesrepr::serialize(key) {
             Ok(bytes) => bytes,
             Err(error) => return Ok(Err(error.into())),
         };
@@ -1158,7 +1158,7 @@ where
     /// Writes runtime context's account main purse to dest_ptr in the Wasm memory.
     fn get_main_purse(&mut self, dest_ptr: u32) -> Result<(), Trap> {
         let purse = self.context.get_main_purse()?;
-        let purse_bytes = purse.into_bytes().map_err(Error::BytesRepr)?;
+        let purse_bytes = bytesrepr::serialize(&purse).map_err(Error::BytesRepr)?;
         self.memory
             .set(dest_ptr, &purse_bytes)
             .map_err(|e| Error::Interpreter(e.into()).into())
@@ -1171,7 +1171,7 @@ where
             // Exit early if the host buffer is already occupied
             return Ok(Err(ApiError::HostBufferFull));
         }
-        let value = CLValue::from_t(self.context.get_caller()).map_err(Error::CLValue)?;
+        let value = CLValue::from_t(&self.context.get_caller()).map_err(Error::CLValue)?;
         let value_size = value.inner_bytes().len();
 
         // Save serialized public key into host buffer
@@ -1190,7 +1190,7 @@ where
     /// Writes runtime context's phase to dest_ptr in the Wasm memory.
     fn get_phase(&mut self, dest_ptr: u32) -> Result<(), Trap> {
         let phase = self.context.phase();
-        let bytes = phase.into_bytes().map_err(Error::BytesRepr)?;
+        let bytes = bytesrepr::serialize(&phase).map_err(Error::BytesRepr)?;
         self.memory
             .set(dest_ptr, &bytes)
             .map_err(|e| Error::Interpreter(e.into()).into())
@@ -1198,11 +1198,8 @@ where
 
     /// Writes current blocktime to dest_ptr in Wasm memory.
     fn get_blocktime(&self, dest_ptr: u32) -> Result<(), Trap> {
-        let blocktime = self
-            .context
-            .get_blocktime()
-            .into_bytes()
-            .map_err(Error::BytesRepr)?;
+        let blocktime =
+            bytesrepr::serialize(&self.context.get_blocktime()).map_err(Error::BytesRepr)?;
         self.memory
             .set(dest_ptr, &blocktime)
             .map_err(|e| Error::Interpreter(e.into()).into())
@@ -1371,21 +1368,21 @@ where
                 if let Err(mint::Error::GasLimit) = result {
                     return Err(execution::Error::GasLimit);
                 }
-                CLValue::from_t(result).map_err(Self::reverter)
+                CLValue::from_t(&result).map_err(Self::reverter)
             })(),
             mint::METHOD_REDUCE_TOTAL_SUPPLY => (|| {
                 mint_runtime.charge_system_contract_call(mint_costs.reduce_total_supply)?;
 
                 let amount: U512 = Self::get_named_argument(&runtime_args, mint::ARG_AMOUNT)?;
                 let result: Result<(), mint::Error> = mint_runtime.reduce_total_supply(amount);
-                CLValue::from_t(result).map_err(Self::reverter)
+                CLValue::from_t(&result).map_err(Self::reverter)
             })(),
             // Type: `fn create() -> URef`
             mint::METHOD_CREATE => (|| {
                 mint_runtime.charge_system_contract_call(mint_costs.create)?;
 
                 let uref = mint_runtime.mint(U512::zero()).map_err(Self::reverter)?;
-                CLValue::from_t(uref).map_err(Self::reverter)
+                CLValue::from_t(&uref).map_err(Self::reverter)
             })(),
             // Type: `fn balance(purse: URef) -> Option<U512>`
             mint::METHOD_BALANCE => (|| {
@@ -1394,7 +1391,7 @@ where
                 let uref: URef = Self::get_named_argument(&runtime_args, mint::ARG_PURSE)?;
                 let maybe_balance: Option<U512> =
                     mint_runtime.balance(uref).map_err(Self::reverter)?;
-                CLValue::from_t(maybe_balance).map_err(Self::reverter)
+                CLValue::from_t(&maybe_balance).map_err(Self::reverter)
             })(),
             // Type: `fn transfer(maybe_to: Option<AccountHash>, source: URef, target: URef, amount:
             // U512, id: Option<u64>) -> Result<(), Error>`
@@ -1409,7 +1406,7 @@ where
                 let id: Option<u64> = Self::get_named_argument(&runtime_args, mint::ARG_ID)?;
                 let result: Result<(), mint::Error> =
                     mint_runtime.transfer(maybe_to, source, target, amount, id);
-                CLValue::from_t(result).map_err(Self::reverter)
+                CLValue::from_t(&result).map_err(Self::reverter)
             })(),
             // Type: `fn read_base_round_reward() -> Result<U512, Error>`
             mint::METHOD_READ_BASE_ROUND_REWARD => (|| {
@@ -1418,10 +1415,10 @@ where
                 let result: U512 = mint_runtime
                     .read_base_round_reward()
                     .map_err(Self::reverter)?;
-                CLValue::from_t(result).map_err(Self::reverter)
+                CLValue::from_t(&result).map_err(Self::reverter)
             })(),
 
-            _ => CLValue::from_t(()).map_err(Self::reverter),
+            _ => CLValue::from_t(&()).map_err(Self::reverter),
         };
 
         // Charge just for the amount that particular entry point cost - using gas cost from the
@@ -1512,7 +1509,7 @@ where
 
                 let rights_controlled_purse =
                     runtime.get_payment_purse().map_err(Self::reverter)?;
-                CLValue::from_t(rights_controlled_purse).map_err(Self::reverter)
+                CLValue::from_t(&rights_controlled_purse).map_err(Self::reverter)
             })(),
             handle_payment::METHOD_SET_REFUND_PURSE => (|| {
                 runtime.charge_system_contract_call(handle_payment_costs.set_refund_purse)?;
@@ -1520,13 +1517,13 @@ where
                 let purse: URef =
                     Self::get_named_argument(&runtime_args, handle_payment::ARG_PURSE)?;
                 runtime.set_refund_purse(purse).map_err(Self::reverter)?;
-                CLValue::from_t(()).map_err(Self::reverter)
+                CLValue::from_t(&()).map_err(Self::reverter)
             })(),
             handle_payment::METHOD_GET_REFUND_PURSE => (|| {
                 runtime.charge_system_contract_call(handle_payment_costs.get_refund_purse)?;
 
                 let maybe_purse = runtime.get_refund_purse().map_err(Self::reverter)?;
-                CLValue::from_t(maybe_purse).map_err(Self::reverter)
+                CLValue::from_t(&maybe_purse).map_err(Self::reverter)
             })(),
             handle_payment::METHOD_FINALIZE_PAYMENT => (|| {
                 runtime.charge_system_contract_call(handle_payment_costs.finalize_payment)?;
@@ -1540,9 +1537,9 @@ where
                 runtime
                     .finalize_payment(amount_spent, account, target)
                     .map_err(Self::reverter)?;
-                CLValue::from_t(()).map_err(Self::reverter)
+                CLValue::from_t(&()).map_err(Self::reverter)
             })(),
-            _ => CLValue::from_t(()).map_err(Self::reverter),
+            _ => CLValue::from_t(&()).map_err(Self::reverter),
         };
 
         self.gas(runtime.gas_counter() - gas_counter)?;
@@ -1639,7 +1636,7 @@ where
 
                 let result = runtime.get_era_validators().map_err(Self::reverter)?;
 
-                CLValue::from_t(result).map_err(Self::reverter)
+                CLValue::from_t(&result).map_err(Self::reverter)
             })(),
 
             auction::METHOD_ADD_BID => (|| {
@@ -1655,7 +1652,7 @@ where
                     .add_bid(account_hash, delegation_rate, amount)
                     .map_err(Self::reverter)?;
 
-                CLValue::from_t(result).map_err(Self::reverter)
+                CLValue::from_t(&result).map_err(Self::reverter)
             })(),
 
             auction::METHOD_WITHDRAW_BID => (|| {
@@ -1668,7 +1665,7 @@ where
                 let result = runtime
                     .withdraw_bid(account_hash, amount)
                     .map_err(Self::reverter)?;
-                CLValue::from_t(result).map_err(Self::reverter)
+                CLValue::from_t(&result).map_err(Self::reverter)
             })(),
 
             auction::METHOD_DELEGATE => (|| {
@@ -1682,7 +1679,7 @@ where
                     .delegate(delegator, validator, amount)
                     .map_err(Self::reverter)?;
 
-                CLValue::from_t(result).map_err(Self::reverter)
+                CLValue::from_t(&result).map_err(Self::reverter)
             })(),
 
             auction::METHOD_UNDELEGATE => (|| {
@@ -1696,7 +1693,7 @@ where
                     .undelegate(delegator, validator, amount)
                     .map_err(Self::reverter)?;
 
-                CLValue::from_t(result).map_err(Self::reverter)
+                CLValue::from_t(&result).map_err(Self::reverter)
             })(),
 
             auction::METHOD_RUN_AUCTION => (|| {
@@ -1711,7 +1708,7 @@ where
                     .run_auction(era_end_timestamp_millis, evicted_validators)
                     .map_err(Self::reverter)?;
 
-                CLValue::from_t(()).map_err(Self::reverter)
+                CLValue::from_t(&()).map_err(Self::reverter)
             })(),
 
             // Type: `fn slash(validator_account_hashes: &[AccountHash]) -> Result<(), Error>`
@@ -1723,7 +1720,7 @@ where
                 runtime
                     .slash(validator_public_keys)
                     .map_err(Self::reverter)?;
-                CLValue::from_t(()).map_err(Self::reverter)
+                CLValue::from_t(&()).map_err(Self::reverter)
             })(),
 
             // Type: `fn distribute(reward_factors: BTreeMap<PublicKey, u64>) -> Result<(), Error>`
@@ -1733,7 +1730,7 @@ where
                 let reward_factors: BTreeMap<PublicKey, u64> =
                     Self::get_named_argument(&runtime_args, auction::ARG_REWARD_FACTORS)?;
                 runtime.distribute(reward_factors).map_err(Self::reverter)?;
-                CLValue::from_t(()).map_err(Self::reverter)
+                CLValue::from_t(&()).map_err(Self::reverter)
             })(),
 
             // Type: `fn read_era_id() -> Result<EraId, Error>`
@@ -1741,7 +1738,7 @@ where
                 runtime.charge_system_contract_call(auction_costs.read_era_id)?;
 
                 let result = runtime.read_era_id().map_err(Self::reverter)?;
-                CLValue::from_t(result).map_err(Self::reverter)
+                CLValue::from_t(&result).map_err(Self::reverter)
             })(),
 
             auction::METHOD_ACTIVATE_BID => (|| {
@@ -1754,10 +1751,10 @@ where
                     .activate_bid(validator_public_key)
                     .map_err(Self::reverter)?;
 
-                CLValue::from_t(()).map_err(Self::reverter)
+                CLValue::from_t(&()).map_err(Self::reverter)
             })(),
 
-            _ => CLValue::from_t(()).map_err(Self::reverter),
+            _ => CLValue::from_t(&()).map_err(Self::reverter),
         };
 
         // Charge for the gas spent during execution in an isolated runtime.
@@ -2090,7 +2087,7 @@ where
                     // running session code
                     *self.context.named_keys_mut() = runtime.context.named_keys().clone();
                 }
-                return Ok(runtime.take_host_buffer().unwrap_or(CLValue::from_t(())?));
+                return Ok(runtime.take_host_buffer().unwrap_or(CLValue::from_t(&())?));
             }
         };
 
@@ -2229,7 +2226,7 @@ where
         }
 
         let named_keys =
-            CLValue::from_t(self.context.named_keys().clone()).map_err(Error::CLValue)?;
+            CLValue::from_t(&self.context.named_keys().clone()).map_err(Error::CLValue)?;
 
         let length = named_keys.inner_bytes().len() as u32;
         if let Err(error) = self.write_host_buffer(named_keys) {
@@ -2322,7 +2319,7 @@ where
             return Ok(Err(err));
         }
         // create CLValue for return value
-        let new_urefs_value = CLValue::from_t(new_urefs)?;
+        let new_urefs_value = CLValue::from_t(&new_urefs)?;
         let value_size = new_urefs_value.inner_bytes().len();
         // write return value to buffer
         if let Err(err) = self.write_host_buffer(new_urefs_value) {
@@ -2406,7 +2403,7 @@ where
 
         // return contract key to caller
         {
-            let key_bytes = match contract_hash.to_bytes() {
+            let key_bytes = match bytesrepr::serialize(&contract_hash) {
                 Ok(bytes) => bytes,
                 Err(error) => return Ok(Err(error.into())),
             };
@@ -2479,7 +2476,10 @@ where
         let cl_value = self.cl_value_from_mem(value_ptr, value_size)?; // read initial value from memory
         let uref = self.context.new_uref(StoredValue::CLValue(cl_value))?;
         self.memory
-            .set(uref_ptr, &uref.into_bytes().map_err(Error::BytesRepr)?)
+            .set(
+                uref_ptr,
+                &bytesrepr::serialize(&uref).map_err(Error::BytesRepr)?,
+            )
             .map_err(|e| Error::Interpreter(e.into()).into())
     }
 
@@ -3011,7 +3011,7 @@ where
             None => return Ok(Err(ApiError::InvalidPurse)),
         };
 
-        let balance_cl_value = match CLValue::from_t(balance) {
+        let balance_cl_value = match CLValue::from_t(&balance) {
             Ok(cl_value) => cl_value,
             Err(error) => return Ok(Err(error.into())),
         };
@@ -3271,7 +3271,7 @@ where
             return Ok(Err(err));
         }
         // create CLValue for return value
-        let new_uref_value = CLValue::from_t(new_uref)?;
+        let new_uref_value = CLValue::from_t(&new_uref)?;
         let value_size = new_uref_value.inner_bytes().len();
         // write return value to buffer
         if let Err(err) = self.write_host_buffer(new_uref_value) {
@@ -3397,95 +3397,100 @@ mod tests {
         };
 
         prop_oneof![
-            Just((CLValue::from_t(()).expect("should create CLValue"), vec![])),
+            Just((CLValue::from_t(&()).expect("should create CLValue"), vec![])),
             any::<bool>()
-                .prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
-            any::<i32>().prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
-            any::<i64>().prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
-            any::<u8>().prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
-            any::<u32>().prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
-            any::<u64>().prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
-            u128_arb().prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
-            u256_arb().prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
-            u512_arb().prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
+                .prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
+            any::<i32>()
+                .prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
+            any::<i64>()
+                .prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
+            any::<u8>().prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
+            any::<u32>()
+                .prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
+            any::<u64>()
+                .prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
+            u128_arb().prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
+            u256_arb().prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
+            u512_arb().prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
             key_arb().prop_map(|x| {
                 let urefs = x.as_uref().into_iter().cloned().collect();
-                (CLValue::from_t(x).expect("should create CLValue"), urefs)
+                (CLValue::from_t(&x).expect("should create CLValue"), urefs)
             }),
-            uref_arb().prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![x])),
-            ".*".prop_map(|x: String| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
+            uref_arb().prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![x])),
+            ".*".prop_map(|x: String| (
+                CLValue::from_t(&x).expect("should create CLValue"),
+                vec![]
+            )),
             option::of(any::<u64>())
-                .prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
+                .prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
             option::of(uref_arb()).prop_map(|x| {
                 let urefs = x.iter().cloned().collect();
-                (CLValue::from_t(x).expect("should create CLValue"), urefs)
+                (CLValue::from_t(&x).expect("should create CLValue"), urefs)
             }),
             option::of(key_arb()).prop_map(|x| {
                 let urefs = x.iter().filter_map(Key::as_uref).cloned().collect();
-                (CLValue::from_t(x).expect("should create CLValue"), urefs)
+                (CLValue::from_t(&x).expect("should create CLValue"), urefs)
             }),
             vec(any::<i32>(), 0..100)
-                .prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
-            vec(uref_arb(), 0..100).prop_map(|x| (
-                CLValue::from_t(x.clone()).expect("should create CLValue"),
-                x
-            )),
+                .prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
+            vec(uref_arb(), 0..100)
+                .prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), x)),
             vec(key_arb(), 0..100).prop_map(|x| (
-                CLValue::from_t(x.clone()).expect("should create CLValue"),
+                CLValue::from_t(&x).expect("should create CLValue"),
                 x.into_iter().filter_map(Key::into_uref).collect()
             )),
             uniform32(any::<u8>())
-                .prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
+                .prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
             result::maybe_err(key_arb(), ".*").prop_map(|x| {
                 let urefs = match &x {
                     Ok(key) => key.as_uref().into_iter().cloned().collect(),
                     Err(_) => vec![],
                 };
-                (CLValue::from_t(x).expect("should create CLValue"), urefs)
+                (CLValue::from_t(&x).expect("should create CLValue"), urefs)
             }),
             result::maybe_ok(".*", uref_arb()).prop_map(|x| {
                 let urefs = match &x {
                     Ok(_) => vec![],
                     Err(uref) => vec![*uref],
                 };
-                (CLValue::from_t(x).expect("should create CLValue"), urefs)
+                (CLValue::from_t(&x).expect("should create CLValue"), urefs)
             }),
             btree_map(".*", u512_arb(), 0..100)
-                .prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
+                .prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
             btree_map(uref_arb(), u512_arb(), 0..100).prop_map(|x| {
                 let urefs = x.keys().cloned().collect();
-                (CLValue::from_t(x).expect("should create CLValue"), urefs)
+                (CLValue::from_t(&x).expect("should create CLValue"), urefs)
             }),
             btree_map(".*", uref_arb(), 0..100).prop_map(|x| {
                 let urefs = x.values().cloned().collect();
-                (CLValue::from_t(x).expect("should create CLValue"), urefs)
+                (CLValue::from_t(&x).expect("should create CLValue"), urefs)
             }),
             btree_map(uref_arb(), key_arb(), 0..100).prop_map(|x| {
                 let mut urefs: Vec<URef> = x.keys().cloned().collect();
                 urefs.extend(x.values().filter_map(Key::as_uref).cloned());
-                (CLValue::from_t(x).expect("should create CLValue"), urefs)
+                (CLValue::from_t(&x).expect("should create CLValue"), urefs)
             }),
             (any::<bool>())
-                .prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
+                .prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
             (uref_arb())
-                .prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![x])),
+                .prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![x])),
             (any::<bool>(), any::<i32>())
-                .prop_map(|x| (CLValue::from_t(x).expect("should create CLValue"), vec![])),
+                .prop_map(|x| (CLValue::from_t(&x).expect("should create CLValue"), vec![])),
             (uref_arb(), any::<i32>()).prop_map(|x| {
                 let uref = x.0;
                 (
-                    CLValue::from_t(x).expect("should create CLValue"),
+                    CLValue::from_t(&x).expect("should create CLValue"),
                     vec![uref],
                 )
             }),
             (any::<i32>(), key_arb()).prop_map(|x| {
                 let urefs = x.1.as_uref().into_iter().cloned().collect();
-                (CLValue::from_t(x).expect("should create CLValue"), urefs)
+                (CLValue::from_t(&x).expect("should create CLValue"), urefs)
             }),
             (uref_arb(), key_arb()).prop_map(|x| {
                 let mut urefs = vec![x.0];
                 urefs.extend(x.1.as_uref().into_iter().cloned());
-                (CLValue::from_t(x).expect("should create CLValue"), urefs)
+                (CLValue::from_t(&x).expect("should create CLValue"), urefs)
             }),
         ]
     }
@@ -3508,7 +3513,7 @@ mod tests {
             ),
             uref,
         );
-        let cl_value = CLValue::from_t(map).unwrap();
+        let cl_value = CLValue::from_t(&map).unwrap();
         assert_eq!(extract_urefs(&cl_value).unwrap(), vec![uref]);
     }
 
@@ -3523,7 +3528,7 @@ mod tests {
             ),
             key,
         );
-        let cl_value = CLValue::from_t(map).unwrap();
+        let cl_value = CLValue::from_t(&map).unwrap();
         assert_eq!(extract_urefs(&cl_value).unwrap(), vec![uref]);
     }
 }

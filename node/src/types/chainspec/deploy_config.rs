@@ -86,7 +86,7 @@ impl Default for DeployConfig {
 }
 
 impl ToBytes for DeployConfig {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         let mut buffer = bytesrepr::allocate_buffer(self)?;
         buffer.extend(self.max_payment_cost.value().to_bytes()?);
         buffer.extend(self.max_ttl.to_bytes()?);

@@ -8,7 +8,7 @@ use casper_types::{
         AccountHash, ActionType, AddKeyFailure, RemoveKeyFailure, SetThresholdFailure,
         UpdateKeyFailure, Weight,
     },
-    bytesrepr::{self, Error, FromBytes, ToBytes},
+    bytesrepr::{Error, FromBytes, ToBytes},
     contracts::NamedKeys,
     AccessRights, URef,
 };
@@ -208,16 +208,16 @@ impl Account {
 }
 
 impl ToBytes for Account {
-    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
-        result.append(&mut self.account_hash.to_bytes()?);
-        result.append(&mut self.named_keys.to_bytes()?);
-        result.append(&mut self.main_purse.to_bytes()?);
-        result.append(&mut self.associated_keys.to_bytes()?);
-        result.append(&mut self.action_thresholds.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), Error> {
+        self.account_hash.to_bytes(sink)?;
+        self.named_keys.to_bytes(sink)?;
+        self.main_purse.to_bytes(sink)?;
+        self.associated_keys.to_bytes(sink)?;
+        self.action_thresholds.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.account_hash.serialized_length()
             + self.named_keys.serialized_length()
@@ -228,6 +228,7 @@ impl ToBytes for Account {
 }
 
 impl FromBytes for Account {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (account_hash, rem) = AccountHash::from_bytes(bytes)?;
         let (named_keys, rem) = NamedKeys::from_bytes(rem)?;

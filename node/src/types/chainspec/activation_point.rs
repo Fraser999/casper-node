@@ -76,7 +76,7 @@ impl Display for ActivationPoint {
 }
 
 impl ToBytes for ActivationPoint {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         match self {
             ActivationPoint::EraId(era_id) => {
                 let mut buffer = vec![ERA_ID_TAG];

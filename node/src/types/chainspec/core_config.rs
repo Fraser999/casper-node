@@ -58,7 +58,7 @@ impl CoreConfig {
 }
 
 impl ToBytes for CoreConfig {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         let mut buffer = bytesrepr::allocate_buffer(self)?;
         buffer.extend(self.era_duration.to_bytes()?);
         buffer.extend(self.minimum_era_height.to_bytes()?);

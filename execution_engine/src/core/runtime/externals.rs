@@ -5,8 +5,7 @@ use wasmi::{Externals, RuntimeArgs, RuntimeValue, Trap};
 use casper_types::{
     account,
     account::AccountHash,
-    api_error,
-    bytesrepr::{self, ToBytes},
+    api_error, bytesrepr,
     contracts::{ContractPackageStatus, EntryPoints, NamedKeys},
     system::auction::EraInfo,
     ContractHash, ContractPackageHash, ContractVersion, EraId, Group, Key, URef, U512,
@@ -295,7 +294,7 @@ where
                     [dest_ptr, dest_size],
                 )?;
                 let purse = self.create_purse()?;
-                let purse_bytes = purse.into_bytes().map_err(Error::BytesRepr)?;
+                let purse_bytes = bytesrepr::serialize(&purse).map_err(Error::BytesRepr)?;
                 assert_eq!(dest_size, purse_bytes.len() as u32);
                 self.memory
                     .set(dest_ptr, &purse_bytes)

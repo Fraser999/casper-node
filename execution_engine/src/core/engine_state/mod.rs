@@ -30,7 +30,7 @@ use tracing::{debug, error};
 
 use casper_types::{
     account::AccountHash,
-    bytesrepr::ToBytes,
+    bytesrepr,
     contracts::NamedKeys,
     system::{
         auction::{
@@ -302,7 +302,7 @@ where
 
             let validator_slots_key = auction_contract.named_keys()[VALIDATOR_SLOTS_KEY];
             let value = StoredValue::CLValue(
-                CLValue::from_t(new_validator_slots)
+                CLValue::from_t(&new_validator_slots)
                     .map_err(|_| Error::Bytesrepr("new_validator_slots".to_string()))?,
             );
             tracking_copy.borrow_mut().write(validator_slots_key, value);
@@ -315,7 +315,7 @@ where
 
             let auction_delay_key = auction_contract.named_keys()[AUCTION_DELAY_KEY];
             let value = StoredValue::CLValue(
-                CLValue::from_t(new_auction_delay)
+                CLValue::from_t(&new_auction_delay)
                     .map_err(|_| Error::Bytesrepr("new_auction_delay".to_string()))?,
             );
             tracking_copy.borrow_mut().write(auction_delay_key, value);
@@ -328,7 +328,7 @@ where
 
             let locked_funds_period_key = auction_contract.named_keys()[LOCKED_FUNDS_PERIOD_KEY];
             let value = StoredValue::CLValue(
-                CLValue::from_t(new_locked_funds_period)
+                CLValue::from_t(&new_locked_funds_period)
                     .map_err(|_| Error::Bytesrepr("new_locked_funds_period".to_string()))?,
             );
             tracking_copy
@@ -343,7 +343,7 @@ where
 
             let unbonding_delay_key = auction_contract.named_keys()[UNBONDING_DELAY_KEY];
             let value = StoredValue::CLValue(
-                CLValue::from_t(new_unbonding_delay)
+                CLValue::from_t(&new_unbonding_delay)
                     .map_err(|_| Error::Bytesrepr("new_unbonding_delay".to_string()))?,
             );
             tracking_copy.borrow_mut().write(unbonding_delay_key, value);
@@ -361,7 +361,7 @@ where
 
             let locked_funds_period_key = mint_contract.named_keys()[ROUND_SEIGNIORAGE_RATE_KEY];
             let value = StoredValue::CLValue(
-                CLValue::from_t(new_round_seigniorage_rate)
+                CLValue::from_t(&new_round_seigniorage_rate)
                     .map_err(|_| Error::Bytesrepr("new_round_seigniorage_rate".to_string()))?,
             );
             tracking_copy
@@ -1739,12 +1739,9 @@ where
         let blocktime = BlockTime::default();
         let deploy_hash = {
             // seeds address generator w/ protocol version
-            let bytes: Vec<u8> = get_era_validators_request
-                .protocol_version()
-                .value()
-                .into_bytes()
-                .map_err(Error::from)?
-                .to_vec();
+            let bytes =
+                bytesrepr::serialize(&get_era_validators_request.protocol_version().value())
+                    .map_err(Error::from)?;
             DeployHash::new(Blake2bHash::new(&bytes).value())
         };
 
@@ -1872,7 +1869,7 @@ where
         let gas_limit = Gas::new(U512::from(std::u64::MAX));
         let deploy_hash = {
             // seeds address generator w/ protocol version
-            let bytes: Vec<u8> = step_request.protocol_version.value().into_bytes()?.to_vec();
+            let bytes = bytesrepr::serialize(&step_request.protocol_version.value())?;
             DeployHash::new(Blake2bHash::new(&bytes).value())
         };
 

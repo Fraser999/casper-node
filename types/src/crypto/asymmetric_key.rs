@@ -369,26 +369,25 @@ impl Clone for PublicKey {
 }
 
 impl ToBytes for PublicKey {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut buffer = bytesrepr::allocate_buffer(self)?;
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         match self {
             PublicKey::System => {
-                buffer.insert(0, SYSTEM_TAG);
+                sink.push(SYSTEM_TAG);
             }
             PublicKey::Ed25519(public_key) => {
-                buffer.insert(0, ED25519_TAG);
-                let ed25519_bytes = public_key.as_bytes();
-                buffer.extend_from_slice(ed25519_bytes);
+                sink.push(ED25519_TAG);
+                public_key.as_bytes().to_bytes(sink)?;
             }
             PublicKey::Secp256k1(public_key) => {
-                buffer.insert(0, SECP256K1_TAG);
-                let secp256k1_bytes = public_key.to_bytes();
-                buffer.extend_from_slice(&secp256k1_bytes);
+                sink.push(SECP256K1_TAG);
+                public_key.to_bytes().to_bytes(sink)?;
             }
         }
-        Ok(buffer)
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         TAG_LENGTH
             + match self {
@@ -400,6 +399,7 @@ impl ToBytes for PublicKey {
 }
 
 impl FromBytes for PublicKey {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (tag, remainder) = u8::from_bytes(bytes)?;
         match tag {
@@ -605,26 +605,25 @@ impl Tagged<u8> for Signature {
 }
 
 impl ToBytes for Signature {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut buffer = bytesrepr::allocate_buffer(self)?;
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         match self {
             Signature::System => {
-                buffer.insert(0, SYSTEM_TAG);
+                sink.push(SYSTEM_TAG);
             }
             Signature::Ed25519(signature) => {
-                buffer.insert(0, ED25519_TAG);
-                let ed5519_bytes = signature.to_bytes();
-                buffer.extend(&ed5519_bytes);
+                sink.push(ED25519_TAG);
+                signature.as_ref().to_bytes(sink)?;
             }
             Signature::Secp256k1(signature) => {
-                buffer.insert(0, SECP256K1_TAG);
-                let secp256k1_bytes = signature.as_ref();
-                buffer.extend_from_slice(secp256k1_bytes);
+                sink.push(SECP256K1_TAG);
+                signature.as_ref().to_bytes(sink)?;
             }
         }
-        Ok(buffer)
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         TAG_LENGTH
             + match self {
@@ -636,6 +635,7 @@ impl ToBytes for Signature {
 }
 
 impl FromBytes for Signature {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (tag, remainder) = u8::from_bytes(bytes)?;
         match tag {

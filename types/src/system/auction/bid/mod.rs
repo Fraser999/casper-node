@@ -254,18 +254,18 @@ impl CLTyped for Bid {
 }
 
 impl ToBytes for Bid {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut result = bytesrepr::allocate_buffer(self)?;
-        result.extend(self.validator_public_key.to_bytes()?);
-        result.extend(self.bonding_purse.to_bytes()?);
-        result.extend(self.staked_amount.to_bytes()?);
-        result.extend(self.delegation_rate.to_bytes()?);
-        result.extend(self.vesting_schedule.to_bytes()?);
-        result.extend(self.delegators.to_bytes()?);
-        result.extend(self.inactive.to_bytes()?);
-        Ok(result)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.validator_public_key.to_bytes(sink)?;
+        self.bonding_purse.to_bytes(sink)?;
+        self.staked_amount.to_bytes(sink)?;
+        self.delegation_rate.to_bytes(sink)?;
+        self.vesting_schedule.to_bytes(sink)?;
+        self.delegators.to_bytes(sink)?;
+        self.inactive.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.validator_public_key.serialized_length()
             + self.bonding_purse.serialized_length()
@@ -278,6 +278,7 @@ impl ToBytes for Bid {
 }
 
 impl FromBytes for Bid {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (validator_public_key, bytes) = FromBytes::from_bytes(bytes)?;
         let (bonding_purse, bytes) = FromBytes::from_bytes(bytes)?;

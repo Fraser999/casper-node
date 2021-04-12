@@ -170,7 +170,7 @@ impl<'de> Deserialize<'de> for Timestamp {
 }
 
 impl ToBytes for Timestamp {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         self.0.to_bytes()
     }
 
@@ -299,7 +299,7 @@ impl<'de> Deserialize<'de> for TimeDiff {
 }
 
 impl ToBytes for TimeDiff {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         self.0.to_bytes()
     }
 

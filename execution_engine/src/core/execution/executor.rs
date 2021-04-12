@@ -544,7 +544,7 @@ impl Executor {
                 // contract's execution succeeded but did not explicitly call `runtime::ret()`.
                 // Treat as though the execution returned the unit type `()` as per Rust
                 // functions which don't specify a return value.
-                let result = runtime.take_host_buffer().unwrap_or(CLValue::from_t(())?);
+                let result = runtime.take_host_buffer().unwrap_or(CLValue::from_t(&())?);
                 let ret = result.into_t()?;
                 *account.named_keys_mut() = named_keys;
                 return Ok(ret);

@@ -206,7 +206,7 @@ where
         let txn: R::ReadTransaction = target_environment.create_read_txn()?;
         let bad_trie = target_store.get(&txn, &bad_key)?.expect("should have trie");
         txn.commit()?;
-        Blake2bHash::new(&bad_trie.to_bytes()?)
+        Blake2bHash::new(&bytesrepr::serialize(&bad_trie)?)
     };
 
     assert_ne!(bad_key, bad_value_hash);

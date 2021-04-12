@@ -49,7 +49,7 @@ impl Loadable for Option<GlobalStateUpdateConfig> {
 pub struct GlobalStateUpdate(pub(crate) BTreeMap<Key, Bytes>);
 
 impl ToBytes for GlobalStateUpdate {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         self.0.to_bytes()
     }
 

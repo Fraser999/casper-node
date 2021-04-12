@@ -315,7 +315,7 @@ impl Display for EraReport {
 }
 
 impl ToBytes for EraReport {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         let mut buffer = bytesrepr::allocate_buffer(self)?;
         buffer.extend(self.equivocators.to_bytes()?);
         buffer.extend(self.rewards.to_bytes()?);
@@ -575,7 +575,7 @@ impl AsRef<[u8]> for BlockHash {
 }
 
 impl ToBytes for BlockHash {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         self.0.to_bytes()
     }
 
@@ -619,7 +619,7 @@ impl EraEnd {
 }
 
 impl ToBytes for EraEnd {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         let mut buffer = bytesrepr::allocate_buffer(self)?;
         buffer.extend(self.era_report.to_bytes()?);
         buffer.extend(self.next_era_validator_weights.to_bytes()?);
@@ -790,7 +790,7 @@ impl Display for BlockHeader {
 }
 
 impl ToBytes for BlockHeader {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         let mut buffer = bytesrepr::allocate_buffer(self)?;
         buffer.extend(self.parent_hash.to_bytes()?);
         buffer.extend(self.state_root_hash.to_bytes()?);
@@ -913,7 +913,7 @@ impl Display for BlockBody {
 }
 
 impl ToBytes for BlockBody {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         let mut buffer = bytesrepr::allocate_buffer(self)?;
         buffer.extend(self.proposer.to_bytes()?);
         buffer.extend(self.deploy_hashes.to_bytes()?);
@@ -1247,7 +1247,7 @@ impl Display for Block {
 }
 
 impl ToBytes for Block {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         let mut buffer = bytesrepr::allocate_buffer(self)?;
         buffer.extend(self.hash.to_bytes()?);
         buffer.extend(self.header.to_bytes()?);

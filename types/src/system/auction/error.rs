@@ -232,17 +232,20 @@ impl TryFrom<u8> for Error {
 }
 
 impl ToBytes for Error {
-    fn to_bytes(&self) -> result::Result<Vec<u8>, bytesrepr::Error> {
-        let value = *self as u8;
-        value.to_bytes()
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        sink.push(*self as u8);
+        Ok(())
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         U8_SERIALIZED_LENGTH
     }
 }
 
 impl FromBytes for Error {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> result::Result<(Self, &[u8]), bytesrepr::Error> {
         let (value, rem): (u8, _) = FromBytes::from_bytes(bytes)?;
         let error: Error = value

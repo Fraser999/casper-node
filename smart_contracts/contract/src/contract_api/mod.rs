@@ -11,7 +11,10 @@ use alloc::{
 };
 use core::{mem, ptr::NonNull};
 
-use casper_types::{bytesrepr::ToBytes, ApiError};
+use casper_types::{
+    bytesrepr::{self, ToBytes},
+    ApiError,
+};
 
 use crate::unwrap_or_revert::UnwrapOrRevert;
 
@@ -35,7 +38,7 @@ pub fn alloc_bytes(n: usize) -> NonNull<u8> {
 }
 
 fn to_ptr<T: ToBytes>(t: T) -> (*const u8, usize, Vec<u8>) {
-    let bytes = t.into_bytes().unwrap_or_revert();
+    let bytes = bytesrepr::serialize(&t).unwrap_or_revert();
     let ptr = bytes.as_ptr();
     let size = bytes.len();
     (ptr, size, bytes)

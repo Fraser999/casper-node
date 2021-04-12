@@ -58,7 +58,7 @@ impl StateReader<Key, StoredValue> for CountingDb {
         let count = self.count.get();
         let value = match self.value {
             Some(ref v) => v.clone(),
-            None => StoredValue::CLValue(CLValue::from_t(count).unwrap()),
+            None => StoredValue::CLValue(CLValue::from_t(&count).unwrap()),
         };
         self.count.set(count + 1);
         Ok(Some(value))
@@ -99,7 +99,7 @@ fn tracking_copy_caching() {
     let mut tc = TrackingCopy::new(db);
     let k = Key::Hash([0u8; 32]);
 
-    let zero = StoredValue::CLValue(CLValue::from_t(0_i32).unwrap());
+    let zero = StoredValue::CLValue(CLValue::from_t(&0_i32).unwrap());
     // first read
     let value = tc.read(correlation_id, &k).unwrap().unwrap();
     assert_eq!(value, zero);
@@ -120,7 +120,7 @@ fn tracking_copy_read() {
     let mut tc = TrackingCopy::new(db);
     let k = Key::Hash([0u8; 32]);
 
-    let zero = StoredValue::CLValue(CLValue::from_t(0_i32).unwrap());
+    let zero = StoredValue::CLValue(CLValue::from_t(&0_i32).unwrap());
     let value = tc.read(correlation_id, &k).unwrap().unwrap();
     // value read correctly
     assert_eq!(value, zero);
@@ -139,8 +139,8 @@ fn tracking_copy_write() {
     let mut tc = TrackingCopy::new(db);
     let k = Key::Hash([0u8; 32]);
 
-    let one = StoredValue::CLValue(CLValue::from_t(1_i32).unwrap());
-    let two = StoredValue::CLValue(CLValue::from_t(2_i32).unwrap());
+    let one = StoredValue::CLValue(CLValue::from_t(&1_i32).unwrap());
+    let two = StoredValue::CLValue(CLValue::from_t(&2_i32).unwrap());
 
     // writing should work
     tc.write(k, one.clone());
@@ -172,7 +172,7 @@ fn tracking_copy_add_i32() {
     let mut tc = TrackingCopy::new(db);
     let k = Key::Hash([0u8; 32]);
 
-    let three = StoredValue::CLValue(CLValue::from_t(3_i32).unwrap());
+    let three = StoredValue::CLValue(CLValue::from_t(&3_i32).unwrap());
 
     // adding should work
     let add = tc.add(correlation_id, k, three.clone());
@@ -214,9 +214,9 @@ fn tracking_copy_add_named_key() {
     let u2 = Key::URef(URef::new([2u8; 32], AccessRights::READ_WRITE));
 
     let name1 = "test".to_string();
-    let named_key = StoredValue::CLValue(CLValue::from_t((name1.clone(), u1)).unwrap());
+    let named_key = StoredValue::CLValue(CLValue::from_t(&(name1.clone(), u1)).unwrap());
     let name2 = "test2".to_string();
-    let other_named_key = StoredValue::CLValue(CLValue::from_t((name2.clone(), u2)).unwrap());
+    let other_named_key = StoredValue::CLValue(CLValue::from_t(&(name2.clone(), u2)).unwrap());
     let mut map = NamedKeys::new();
     map.insert(name1, u1);
 
@@ -224,7 +224,7 @@ fn tracking_copy_add_named_key() {
     let failed_add = tc.add(
         correlation_id,
         k,
-        StoredValue::CLValue(CLValue::from_t(3_i32).unwrap()),
+        StoredValue::CLValue(CLValue::from_t(&3_i32).unwrap()),
     );
     assert_matches!(failed_add, Ok(AddResult::TypeMismatch(_)));
     assert_eq!(tc.ops.is_empty(), true);
@@ -259,7 +259,7 @@ fn tracking_copy_rw() {
     let k = Key::Hash([0u8; 32]);
 
     // reading then writing should update the op
-    let value = StoredValue::CLValue(CLValue::from_t(3_i32).unwrap());
+    let value = StoredValue::CLValue(CLValue::from_t(&3_i32).unwrap());
     let _ = tc.read(correlation_id, &k);
     tc.write(k, value.clone());
     assert_eq!(tc.fns.len(), 1);
@@ -277,7 +277,7 @@ fn tracking_copy_ra() {
     let k = Key::Hash([0u8; 32]);
 
     // reading then adding should update the op
-    let value = StoredValue::CLValue(CLValue::from_t(3_i32).unwrap());
+    let value = StoredValue::CLValue(CLValue::from_t(&3_i32).unwrap());
     let _ = tc.read(correlation_id, &k);
     let _ = tc.add(correlation_id, k, value);
     assert_eq!(tc.fns.len(), 1);
@@ -296,8 +296,8 @@ fn tracking_copy_aw() {
     let k = Key::Hash([0u8; 32]);
 
     // adding then writing should update the op
-    let value = StoredValue::CLValue(CLValue::from_t(3_i32).unwrap());
-    let write_value = StoredValue::CLValue(CLValue::from_t(7_i32).unwrap());
+    let value = StoredValue::CLValue(CLValue::from_t(&3_i32).unwrap());
+    let write_value = StoredValue::CLValue(CLValue::from_t(&7_i32).unwrap());
     let _ = tc.add(correlation_id, k, value);
     tc.write(k, write_value.clone());
     assert_eq!(tc.fns.len(), 1);
@@ -469,15 +469,15 @@ fn cache_reads_invalidation() {
     let mut tc_cache = TrackingCopyCache::new(2, Count);
     let (k1, v1) = (
         Key::Hash([1u8; 32]),
-        StoredValue::CLValue(CLValue::from_t(1_i32).unwrap()),
+        StoredValue::CLValue(CLValue::from_t(&1_i32).unwrap()),
     );
     let (k2, v2) = (
         Key::Hash([2u8; 32]),
-        StoredValue::CLValue(CLValue::from_t(2_i32).unwrap()),
+        StoredValue::CLValue(CLValue::from_t(&2_i32).unwrap()),
     );
     let (k3, v3) = (
         Key::Hash([3u8; 32]),
-        StoredValue::CLValue(CLValue::from_t(3_i32).unwrap()),
+        StoredValue::CLValue(CLValue::from_t(&3_i32).unwrap()),
     );
     tc_cache.insert_read(k1, v1);
     tc_cache.insert_read(k2, v2.clone());
@@ -492,15 +492,15 @@ fn cache_writes_not_invalidated() {
     let mut tc_cache = TrackingCopyCache::new(2, Count);
     let (k1, v1) = (
         Key::Hash([1u8; 32]),
-        StoredValue::CLValue(CLValue::from_t(1_i32).unwrap()),
+        StoredValue::CLValue(CLValue::from_t(&1_i32).unwrap()),
     );
     let (k2, v2) = (
         Key::Hash([2u8; 32]),
-        StoredValue::CLValue(CLValue::from_t(2_i32).unwrap()),
+        StoredValue::CLValue(CLValue::from_t(&2_i32).unwrap()),
     );
     let (k3, v3) = (
         Key::Hash([3u8; 32]),
-        StoredValue::CLValue(CLValue::from_t(3_i32).unwrap()),
+        StoredValue::CLValue(CLValue::from_t(&3_i32).unwrap()),
     );
     tc_cache.insert_write(k1, v1.clone());
     tc_cache.insert_read(k2, v2.clone());
@@ -515,7 +515,7 @@ fn cache_writes_not_invalidated() {
 fn query_for_circular_references_should_fail() {
     // create self-referential key
     let cl_value_key = Key::URef(URef::new([255; 32], AccessRights::READ));
-    let cl_value = StoredValue::CLValue(CLValue::from_t(cl_value_key).unwrap());
+    let cl_value = StoredValue::CLValue(CLValue::from_t(&cl_value_key).unwrap());
     let key_name = "key".to_string();
 
     // create contract with this self-referential key in its named keys, and also a key referring to
@@ -608,7 +608,7 @@ fn validate_query_proof_should_work() {
     let main_account_key = Key::Account(account_hash);
 
     // random value for proof injection attack
-    let cl_value = CLValue::from_t(U512::zero()).expect("should convert");
+    let cl_value = CLValue::from_t(&U512::zero()).expect("should convert");
     let uref_value = StoredValue::CLValue(cl_value);
     let uref_key = Key::URef(URef::new([8; 32], AccessRights::READ_ADD_WRITE));
 
@@ -822,7 +822,7 @@ fn get_keys_should_return_keys_in_the_account_keyspace() {
     let account_2_key = Key::Account(account_2_hash);
 
     // random value
-    let cl_value = CLValue::from_t(U512::zero()).expect("should convert");
+    let cl_value = CLValue::from_t(&U512::zero()).expect("should convert");
     let uref_value = StoredValue::CLValue(cl_value);
     let uref_key = Key::URef(URef::new([8; 32], AccessRights::READ_ADD_WRITE));
 
@@ -868,12 +868,12 @@ fn get_keys_should_return_keys_in_the_uref_keyspace() {
     let account_key = Key::Account(account_hash);
 
     // random value 1
-    let cl_value = CLValue::from_t(U512::zero()).expect("should convert");
+    let cl_value = CLValue::from_t(&U512::zero()).expect("should convert");
     let uref_1_value = StoredValue::CLValue(cl_value);
     let uref_1_key = Key::URef(URef::new([8; 32], AccessRights::READ_ADD_WRITE));
 
     // random value 2
-    let cl_value = CLValue::from_t(U512::one()).expect("should convert");
+    let cl_value = CLValue::from_t(&U512::one()).expect("should convert");
     let uref_2_value = StoredValue::CLValue(cl_value);
     let uref_2_key = Key::URef(URef::new([9; 32], AccessRights::READ_ADD_WRITE));
 
@@ -906,7 +906,7 @@ fn get_keys_should_return_keys_in_the_uref_keyspace() {
     assert!(!key_set.contains(&account_key));
 
     // random value 3
-    let cl_value = CLValue::from_t(U512::from(2)).expect("should convert");
+    let cl_value = CLValue::from_t(&U512::from(2)).expect("should convert");
     let uref_3_value = StoredValue::CLValue(cl_value);
     let uref_3_key = Key::URef(URef::new([10; 32], AccessRights::READ_ADD_WRITE));
     tracking_copy.write(uref_3_key, uref_3_value);
@@ -942,7 +942,7 @@ fn get_keys_should_handle_reads_from_empty_trie() {
     assert!(key_set.is_empty());
 
     // persist random value 1
-    let cl_value = CLValue::from_t(U512::zero()).expect("should convert");
+    let cl_value = CLValue::from_t(&U512::zero()).expect("should convert");
     let uref_1_value = StoredValue::CLValue(cl_value);
     let uref_1_key = Key::URef(URef::new([8; 32], AccessRights::READ_ADD_WRITE));
     tracking_copy.write(uref_1_key, uref_1_value);
@@ -955,7 +955,7 @@ fn get_keys_should_handle_reads_from_empty_trie() {
     assert!(key_set.contains(&uref_1_key.normalize()));
 
     // persist random value 2
-    let cl_value = CLValue::from_t(U512::one()).expect("should convert");
+    let cl_value = CLValue::from_t(&U512::one()).expect("should convert");
     let uref_2_value = StoredValue::CLValue(cl_value);
     let uref_2_key = Key::URef(URef::new([9; 32], AccessRights::READ_ADD_WRITE));
     tracking_copy.write(uref_2_key, uref_2_value);
@@ -985,7 +985,7 @@ fn get_keys_should_handle_reads_from_empty_trie() {
     assert!(!key_set.contains(&account_key));
 
     // persist random value 3
-    let cl_value = CLValue::from_t(U512::from(2)).expect("should convert");
+    let cl_value = CLValue::from_t(&U512::from(2)).expect("should convert");
     let uref_3_value = StoredValue::CLValue(cl_value);
     let uref_3_key = Key::URef(URef::new([10; 32], AccessRights::READ_ADD_WRITE));
     tracking_copy.write(uref_3_key, uref_3_value);

@@ -86,7 +86,7 @@ impl Distribution<AccountConfig> for Standard {
 }
 
 impl ToBytes for AccountConfig {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
         let mut buffer = bytesrepr::allocate_buffer(self)?;
         buffer.extend(self.public_key.to_bytes()?);
         buffer.extend(self.balance.to_bytes()?);

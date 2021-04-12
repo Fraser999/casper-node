@@ -21,19 +21,20 @@ pub struct NamedKey {
 }
 
 impl ToBytes for NamedKey {
-    fn to_bytes(&self) -> Result<Vec<u8>, bytesrepr::Error> {
-        let mut buffer = bytesrepr::allocate_buffer(self)?;
-        buffer.extend(self.name.to_bytes()?);
-        buffer.extend(self.key.to_bytes()?);
-        Ok(buffer)
+    #[inline(always)]
+    fn to_bytes(&self, sink: &mut Vec<u8>) -> Result<(), bytesrepr::Error> {
+        self.name.to_bytes(sink)?;
+        self.key.to_bytes(sink)
     }
 
+    #[inline(always)]
     fn serialized_length(&self) -> usize {
         self.name.serialized_length() + self.key.serialized_length()
     }
 }
 
 impl FromBytes for NamedKey {
+    #[inline(always)]
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
         let (name, remainder) = String::from_bytes(bytes)?;
         let (key, remainder) = String::from_bytes(remainder)?;
