@@ -216,10 +216,12 @@ impl AsymmetricKeyExt for SecretKey {
         })?;
 
         match key_type_tag {
-            SYSTEM_TAG => Err(Error::AsymmetricKey("cannot construct variant".to_string())),
+            SYSTEM_TAG => Err(Error::System(
+                "cannot construct system variant from der-encoded".to_string(),
+            )),
             ED25519_TAG => SecretKey::ed25519_from_bytes(raw_bytes).map_err(Into::into),
             SECP256K1_TAG => SecretKey::secp256k1_from_bytes(raw_bytes).map_err(Into::into),
-            _ => Err(Error::AsymmetricKey("unknown type tag".to_string())),
+            _ => Err(Error::FromDerInvalidTag),
         }
     }
 

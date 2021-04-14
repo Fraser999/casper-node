@@ -1,7 +1,6 @@
 //! Asymmetric key types and methods on them
 
 use alloc::{
-    format,
     string::{String, ToString},
     vec::Vec,
 };
@@ -84,7 +83,7 @@ where
     /// by `AsymmetricType::to_hex()`.
     fn from_hex<A: AsRef<[u8]>>(input: A) -> Result<Self, Error> {
         if input.as_ref().len() < 2 {
-            return Err(Error::AsymmetricKey("too short".to_string()));
+            return Err(Error::FromHexNoTag);
         }
 
         let (tag_bytes, key_bytes) = input.as_ref().split_at(2);
@@ -100,10 +99,9 @@ where
                 let bytes = hex::decode(key_bytes)?;
                 Self::secp256k1_from_bytes(&bytes)
             }
-            _ => Err(Error::AsymmetricKey(format!(
-                "invalid tag.  Expected {} or {}, got {}",
-                ED25519_TAG, SECP256K1_TAG, tag[0]
-            ))),
+            _ => Err(Error::FromHexInvalidTag {
+                provided_tag: tag[0],
+            }),
         }
     }
 
@@ -147,16 +145,18 @@ impl SecretKey {
 
     /// Constructs a new ed25519 variant from a byte slice.
     pub fn ed25519_from_bytes<T: AsRef<[u8]>>(bytes: T) -> Result<Self, Error> {
-        Ok(SecretKey::Ed25519(ed25519_dalek::SecretKey::from_bytes(
-            bytes.as_ref(),
-        )?))
+        Ok(SecretKey::Ed25519(
+            ed25519_dalek::SecretKey::from_bytes(bytes.as_ref())
+                .map_err(|_| Error::Ed25519SecretKeyFromBytes)?,
+        ))
     }
 
     /// Constructs a new secp256k1 variant from a byte slice.
     pub fn secp256k1_from_bytes<T: AsRef<[u8]>>(bytes: T) -> Result<Self, Error> {
-        Ok(SecretKey::Secp256k1(Secp256k1SecretKey::from_bytes(
-            bytes.as_ref(),
-        )?))
+        Ok(SecretKey::Secp256k1(
+            Secp256k1SecretKey::from_bytes(bytes.as_ref())
+                .map_err(|_| Error::Secp256k1SecretKeyFromBytes)?,
+        ))
     }
 
     fn variant_name(&self) -> &str {
@@ -251,15 +251,23 @@ impl AsymmetricType<'_> for PublicKey {
     }
 
     fn ed25519_from_bytes<T: AsRef<[u8]>>(bytes: T) -> Result<Self, Error> {
-        Ok(PublicKey::Ed25519(ed25519_dalek::PublicKey::from_bytes(
-            bytes.as_ref(),
-        )?))
+        Ok(PublicKey::Ed25519(
+            ed25519_dalek::PublicKey::from_bytes(bytes.as_ref()).map_err(|_| {
+                Error::Ed25519PublicKeyFromBytes {
+                    provided_bytes: bytes.as_ref().to_vec(),
+                }
+            })?,
+        ))
     }
 
     fn secp256k1_from_bytes<T: AsRef<[u8]>>(bytes: T) -> Result<Self, Error> {
-        Ok(PublicKey::Secp256k1(Secp256k1PublicKey::from_sec1_bytes(
-            bytes.as_ref(),
-        )?))
+        Ok(PublicKey::Secp256k1(
+            Secp256k1PublicKey::from_sec1_bytes(bytes.as_ref()).map_err(|_| {
+                Error::Secp256k1PublicKeyFromBytes {
+                    provided_bytes: bytes.as_ref().to_vec(),
+                }
+            })?,
+        ))
     }
 }
 
@@ -483,10 +491,9 @@ impl Signature {
     /// Constructs a new Ed25519 variant from a byte array.
     pub fn ed25519(bytes: [u8; Self::ED25519_LENGTH]) -> Result<Self, Error> {
         let signature = ed25519_dalek::Signature::from_bytes(&bytes).map_err(|_| {
-            Error::AsymmetricKey(format!(
-                "failed to construct Ed25519 signature from {:?}",
-                &bytes[..]
-            ))
+            Error::Ed25519SignatureFromBytes {
+                provided_bytes: bytes.to_vec(),
+            }
         })?;
 
         Ok(Signature::Ed25519(signature))
@@ -495,10 +502,9 @@ impl Signature {
     /// Constructs a new secp256k1 variant from a byte array.
     pub fn secp256k1(bytes: [u8; Self::SECP256K1_LENGTH]) -> Result<Self, Error> {
         let signature = Secp256k1Signature::try_from(&bytes[..]).map_err(|_| {
-            Error::AsymmetricKey(format!(
-                "failed to construct secp256k1 signature from {:?}",
-                &bytes[..]
-            ))
+            Error::Secp256k1SignatureFromBytes {
+                provided_bytes: bytes.to_vec(),
+            }
         })?;
 
         Ok(Signature::Secp256k1(signature))
@@ -520,20 +526,18 @@ impl AsymmetricType<'_> for Signature {
 
     fn ed25519_from_bytes<T: AsRef<[u8]>>(bytes: T) -> Result<Self, Error> {
         let signature = ed25519_dalek::Signature::from_bytes(bytes.as_ref()).map_err(|_| {
-            Error::AsymmetricKey(format!(
-                "failed to construct Ed25519 signature from {:?}",
-                bytes.as_ref()
-            ))
+            Error::Ed25519SignatureFromBytes {
+                provided_bytes: bytes.as_ref().to_vec(),
+            }
         })?;
         Ok(Signature::Ed25519(signature))
     }
 
     fn secp256k1_from_bytes<T: AsRef<[u8]>>(bytes: T) -> Result<Self, Error> {
         let signature = k256::ecdsa::Signature::try_from(bytes.as_ref()).map_err(|_| {
-            Error::AsymmetricKey(format!(
-                "failed to construct secp256k1 signature from {:?}",
-                bytes.as_ref()
-            ))
+            Error::Secp256k1SignatureFromBytes {
+                provided_bytes: bytes.as_ref().to_vec(),
+            }
         })?;
         Ok(Signature::Secp256k1(signature))
     }

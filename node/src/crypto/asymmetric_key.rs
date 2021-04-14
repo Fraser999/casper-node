@@ -57,24 +57,19 @@ pub fn verify<T: AsRef<[u8]>>(
     public_key: &PublicKey,
 ) -> Result<()> {
     match (signature, public_key) {
-        (Signature::System, _) => Err(Error::AsymmetricKey(String::from(
+        (Signature::System, _) => Err(Error::System(String::from(
             "signatures based on the system key cannot be verified",
         ))),
         (Signature::Ed25519(signature), PublicKey::Ed25519(public_key)) => public_key
             .verify_strict(message.as_ref(), signature)
-            .map_err(|_| Error::AsymmetricKey(String::from("failed to verify Ed25519 signature"))),
+            .map_err(|_| Error::Ed25519FailedToVerify),
         (Signature::Secp256k1(signature), PublicKey::Secp256k1(public_key)) => {
             let verifier: &Secp256k1PublicKey = public_key;
             verifier
                 .verify(message.as_ref(), signature)
-                .map_err(|error| {
-                    Error::AsymmetricKey(format!("failed to verify secp256k1 signature: {}", error))
-                })
+                .map_err(|_| Error::Secp256k1FailedToVerify)
         }
-        _ => Err(Error::AsymmetricKey(format!(
-            "type mismatch between {} and {}",
-            signature, public_key
-        ))),
+        _ => Err(Error::PublicKeyVsSignatureMismatch),
     }
 }
 

@@ -1,9 +1,7 @@
 use std::result;
 
-use base64::DecodeError;
 use hex::FromHexError;
 use pem::PemError;
-use signature::Error as SignatureError;
 use thiserror::Error;
 
 use crate::utils::{ReadFileError, WriteFileError};
@@ -17,7 +15,7 @@ pub type Result<T> = result::Result<T, Error>;
 pub enum Error {
     /// Error resulting from creating or using asymmetric key types.
     #[error("asymmetric key error: {0}")]
-    AsymmetricKey(String),
+    AsymmetricKey(crypto::Error),
 
     /// Error resulting when decoding a type from a hex-encoded representation.
     #[error("parsing from hex: {0}")]
@@ -31,10 +29,6 @@ pub enum Error {
     #[error("public key load failed: {0}")]
     PublicKeyLoad(ReadFileError),
 
-    /// Error resulting when decoding a type from a base64 representation.
-    #[error("decoding error: {0}")]
-    FromBase64(#[from] DecodeError),
-
     /// Pem format error.
     #[error("pem error: {0}")]
     FromPem(String),
@@ -42,6 +36,10 @@ pub enum Error {
     /// DER format error.
     #[error("der error: {0}")]
     FromDer(#[from] derp::Error),
+
+    /// DER format error - invalid tag provided.
+    #[error("der error: invalid tag")]
+    FromDerInvalidTag,
 
     /// Error trying to write a secret key.
     #[error("secret key save failed: {0}")]
@@ -55,13 +53,21 @@ pub enum Error {
     #[error("invalid operation on system key: {0}")]
     System(String),
 
-    /// Error related to the underlying signature crate.
-    #[error("error in signature")]
-    Signature(SignatureError),
-
     /// Error in getting random bytes from the system's preferred random number source.
     #[error("failed to get random bytes: {0}")]
     GetRandomBytes(#[from] getrandom::Error),
+
+    /// Failed to verify an Ed25519 signature.
+    #[error("failed to verify ed25519 signature")]
+    Ed25519FailedToVerify,
+
+    /// Failed to verify a Secp256k1 signature.
+    #[error("failed to verify secp256k1 signature")]
+    Secp256k1FailedToVerify,
+
+    /// Mismatch between type of PublicKey and type of Signature.
+    #[error("mismatch between public key and signature type")]
+    PublicKeyVsSignatureMismatch,
 }
 
 impl From<PemError> for Error {
@@ -72,11 +78,6 @@ impl From<PemError> for Error {
 
 impl From<crypto::Error> for Error {
     fn from(error: crypto::Error) -> Self {
-        match error {
-            crypto::Error::AsymmetricKey(string) => Error::AsymmetricKey(string),
-            crypto::Error::FromHex(error) => Error::FromHex(error),
-            crypto::Error::FromBase64(error) => Error::FromBase64(error),
-            crypto::Error::SignatureError(error) => Error::Signature(error),
-        }
+        Error::AsymmetricKey(error)
     }
 }
