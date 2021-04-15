@@ -26,7 +26,7 @@ use std::{
 
 use num_rational::Ratio;
 use once_cell::sync::Lazy;
-use tracing::{debug, error};
+use tracing::{debug, error, trace};
 
 use casper_types::{
     account::AccountHash,
@@ -227,13 +227,16 @@ where
         // 3.1.1.1.1.1 validate pre state hash exists
         // 3.1.2.1 get a tracking_copy at the provided pre_state_hash
         let pre_state_hash = upgrade_config.pre_state_hash();
+        trace!("pre state hash{:?}", pre_state_hash);
         let tracking_copy = match self.tracking_copy(pre_state_hash)? {
             Some(tracking_copy) => Rc::new(RefCell::new(tracking_copy)),
             None => return Ok(UpgradeResult::RootNotFound),
         };
+        trace!("got tracking copy");
 
         // 3.1.1.1.1.2 current protocol version is required
         let current_protocol_version = upgrade_config.current_protocol_version();
+        trace!("got current protocol version: {}", current_protocol_version);
         let current_protocol_data = match self.state.get_protocol_data(current_protocol_version) {
             Ok(Some(protocol_data)) => protocol_data,
             Ok(None) => {
@@ -243,10 +246,12 @@ where
                 return Err(Error::Exec(error.into()));
             }
         };
+        trace!("got current protocol data");
 
         // 3.1.1.1.1.3 activation point is not currently used by EE; skipping
         // 3.1.1.1.1.4 upgrade point protocol version validation
         let new_protocol_version = upgrade_config.new_protocol_version();
+        trace!("got new protocol version: {}", new_protocol_version);
 
         let upgrade_check_result =
             current_protocol_version.check_next_version(&new_protocol_version);
@@ -267,6 +272,7 @@ where
                 .upgrade_system_contracts_major_version(correlation_id)
                 .map_err(Error::ProtocolUpgrade)?;
         }
+        trace!("upgraded system contracts");
 
         // 3.1.1.1.1.6 resolve wasm CostTable for new protocol version
         let new_wasm_config = match upgrade_config.wasm_config() {
@@ -292,13 +298,17 @@ where
         self.state
             .put_protocol_data(new_protocol_version, &new_protocol_data)
             .map_err(Into::into)?;
+        trace!("put protocol data");
 
         // 3.1.1.1.1.7 new total validator slots is optional
-        if let Some(new_validator_slots) = upgrade_config.new_validator_slots() {
+        let v = upgrade_config.new_validator_slots();
+        trace!("new validator slots: {}", v.is_some());
+        if let Some(new_validator_slots) = v {
             // 3.1.2.4 if new total validator slots is provided, update auction contract state
             let auction_contract = tracking_copy
                 .borrow_mut()
                 .get_contract(correlation_id, new_protocol_data.auction())?;
+            trace!("got auction contract 1");
 
             let validator_slots_key = auction_contract.named_keys()[VALIDATOR_SLOTS_KEY];
             let value = StoredValue::CLValue(
@@ -306,12 +316,16 @@ where
                     .map_err(|_| Error::Bytesrepr("new_validator_slots".to_string()))?,
             );
             tracking_copy.borrow_mut().write(validator_slots_key, value);
+            trace!("wrote new validator slots");
         }
 
-        if let Some(new_auction_delay) = upgrade_config.new_auction_delay() {
+        let a = upgrade_config.new_auction_delay();
+        trace!("new auction delay: {}", a.is_some());
+        if let Some(new_auction_delay) = a {
             let auction_contract = tracking_copy
                 .borrow_mut()
                 .get_contract(correlation_id, new_protocol_data.auction())?;
+            trace!("got auction contract 2");
 
             let auction_delay_key = auction_contract.named_keys()[AUCTION_DELAY_KEY];
             let value = StoredValue::CLValue(
@@ -319,12 +333,16 @@ where
                     .map_err(|_| Error::Bytesrepr("new_auction_delay".to_string()))?,
             );
             tracking_copy.borrow_mut().write(auction_delay_key, value);
+            trace!("wrote new auction delay");
         }
 
-        if let Some(new_locked_funds_period) = upgrade_config.new_locked_funds_period_millis() {
+        let l = upgrade_config.new_locked_funds_period_millis();
+        trace!("new locked funds period: {}", l.is_some());
+        if let Some(new_locked_funds_period) = l {
             let auction_contract = tracking_copy
                 .borrow_mut()
                 .get_contract(correlation_id, new_protocol_data.auction())?;
+            trace!("got auction contract 3");
 
             let locked_funds_period_key = auction_contract.named_keys()[LOCKED_FUNDS_PERIOD_KEY];
             let value = StoredValue::CLValue(
@@ -334,12 +352,16 @@ where
             tracking_copy
                 .borrow_mut()
                 .write(locked_funds_period_key, value);
+            trace!("wrote new locked funds period");
         }
 
-        if let Some(new_unbonding_delay) = upgrade_config.new_unbonding_delay() {
+        let u = upgrade_config.new_unbonding_delay();
+        trace!("new unbonding delay: {}", u.is_some());
+        if let Some(new_unbonding_delay) = u {
             let auction_contract = tracking_copy
                 .borrow_mut()
                 .get_contract(correlation_id, new_protocol_data.auction())?;
+            trace!("got auction contract 4");
 
             let unbonding_delay_key = auction_contract.named_keys()[UNBONDING_DELAY_KEY];
             let value = StoredValue::CLValue(
@@ -347,9 +369,12 @@ where
                     .map_err(|_| Error::Bytesrepr("new_unbonding_delay".to_string()))?,
             );
             tracking_copy.borrow_mut().write(unbonding_delay_key, value);
+            trace!("wrote new unbonding delay");
         }
 
-        if let Some(new_round_seigniorage_rate) = upgrade_config.new_round_seigniorage_rate() {
+        let s = upgrade_config.new_round_seigniorage_rate();
+        trace!("new round srg rate: {}", s.is_some());
+        if let Some(new_round_seigniorage_rate) = s {
             let new_round_seigniorage_rate: Ratio<U512> = {
                 let (numer, denom) = new_round_seigniorage_rate.into();
                 Ratio::new(numer.into(), denom.into())
@@ -358,6 +383,7 @@ where
             let mint_contract = tracking_copy
                 .borrow_mut()
                 .get_contract(correlation_id, new_protocol_data.mint())?;
+            trace!("got mint contract");
 
             let locked_funds_period_key = mint_contract.named_keys()[ROUND_SEIGNIORAGE_RATE_KEY];
             let value = StoredValue::CLValue(
@@ -367,11 +393,17 @@ where
             tracking_copy
                 .borrow_mut()
                 .write(locked_funds_period_key, value);
+            trace!("wrote new round srg rate");
         }
 
         // apply the arbitrary modifications
+        trace!(
+            "about to write {} keys",
+            upgrade_config.global_state_update().len()
+        );
         for (key, value) in upgrade_config.global_state_update() {
             tracking_copy.borrow_mut().write(*key, value.clone());
+            trace!("wrote key");
         }
 
         let effects = tracking_copy.borrow().effect();
@@ -385,6 +417,7 @@ where
                 effects.transforms.to_owned(),
             )
             .map_err(Into::into)?;
+        trace!("commit result: {}", commit_result);
 
         // return result and effects
         Ok(UpgradeResult::from_commit_result(commit_result, effects))

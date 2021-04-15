@@ -1,4 +1,7 @@
-use std::{env, fs, io, path::PathBuf};
+use std::{
+    env, fs, io,
+    path::{Path, PathBuf},
+};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -20,8 +23,6 @@ type OldConfig = toml::Value;
 
 /// The name of the file for recording the new global state hash after a data migration.
 const POST_MIGRATION_STATE_HASH_FILENAME: &str = "post-migration-state-hash";
-/// The folder under which the post-migration-state-hash file is written.
-const CONFIG_ROOT_DIR: &str = "/etc/casper";
 /// Environment variable to override the config root dir.
 const CONFIG_ROOT_DIR_OVERRIDE: &str = "CASPER_CONFIG_DIR";
 
@@ -102,17 +103,14 @@ struct SignedPostMigrationInfo {
 /// Returns `Ok(None)` if there is no saved file or if it doesn't contain the same version as
 /// `protocol_version`.  Returns `Ok(Some)` if the file can be read and it contains the same version
 /// as `protocol_version`.  Otherwise returns an error.
-// TODO - remove once used.
-#[allow(unused)]
 pub(crate) fn read_post_migration_info(
     protocol_version: ProtocolVersion,
     public_key: &PublicKey,
+    storage_path: &Path,
 ) -> Result<Option<Blake2bHash>, Error> {
-    do_read_post_migration_info(protocol_version, public_key, info_path())
+    do_read_post_migration_info(protocol_version, public_key, info_path(storage_path))
 }
 
-// TODO - remove once used.
-#[allow(unused)]
 fn do_read_post_migration_info(
     protocol_version: ProtocolVersion,
     public_key: &PublicKey,
@@ -188,16 +186,16 @@ fn write_post_migration_info(
     Ok(())
 }
 
-fn info_path() -> PathBuf {
-    PathBuf::from(
-        env::var(CONFIG_ROOT_DIR_OVERRIDE).unwrap_or_else(|_| CONFIG_ROOT_DIR.to_string()),
-    )
-    .join(POST_MIGRATION_STATE_HASH_FILENAME)
+fn info_path(root_dir: &Path) -> PathBuf {
+    env::var(CONFIG_ROOT_DIR_OVERRIDE)
+        .map(|path_string| Path::new(&path_string).to_owned())
+        .unwrap_or_else(|_| root_dir.to_owned())
+        .join(POST_MIGRATION_STATE_HASH_FILENAME)
 }
 
 /// Migrates data from that specified in the old config file to that specified in the new one.
 pub fn migrate_data(
-    _old_config: WithDir<OldConfig>,
+    old_config: WithDir<OldConfig>,
     new_config: WithDir<Config>,
 ) -> Result<(), Error> {
     let (new_root, new_config) = new_config.into_parts();
@@ -210,12 +208,30 @@ pub fn migrate_data(
         .secret_key_path
         .load(&new_root)
         .map_err(Error::LoadSecretKey)?;
+    let new_storage_path = if new_config.storage.path.is_relative() {
+        new_root.join(&new_config.storage.path)
+    } else {
+        new_config.storage.path.clone()
+    };
+
+    let (old_root, old_config) = old_config.into_parts();
+    let old_path = Path::new(old_config["storage"]["path"].as_str().unwrap());
+    let old_storage_path = if old_path.is_relative() {
+        old_root.join(old_path)
+    } else {
+        old_path.to_owned()
+    };
 
     // Get this by actually migrating the global state data.
     let state_hash = Blake2bHash::default();
 
     if state_hash != Blake2bHash::default() {
-        write_post_migration_info(state_hash, new_protocol_version, &secret_key, info_path())?;
+        write_post_migration_info(
+            state_hash,
+            new_protocol_version,
+            &secret_key,
+            info_path(&new_storage_path),
+        )?;
     }
 
     Ok(())

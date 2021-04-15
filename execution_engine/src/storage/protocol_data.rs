@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use tracing::trace;
+
 use casper_types::{
     bytesrepr::{self, FromBytes, ToBytes},
     ContractHash, HashAddr,
@@ -173,12 +175,19 @@ impl ToBytes for ProtocolData {
 
 impl FromBytes for ProtocolData {
     fn from_bytes(bytes: &[u8]) -> Result<(Self, &[u8]), bytesrepr::Error> {
+        trace!("parsing protocol data");
         let (wasm_config, rem) = WasmConfig::from_bytes(bytes)?;
+        trace!("parsed wasm config");
         let (system_config, rem) = FromBytes::from_bytes(rem)?;
+        trace!("parsed system config");
         let (mint, rem) = HashAddr::from_bytes(rem)?;
+        trace!("parsed mint");
         let (handle_payment, rem) = HashAddr::from_bytes(rem)?;
+        trace!("parsed handle payment");
         let (standard_payment, rem) = HashAddr::from_bytes(rem)?;
+        trace!("parsed standard payment");
         let (auction, rem) = HashAddr::from_bytes(rem)?;
+        trace!("parsed auction");
 
         Ok((
             ProtocolData {
