@@ -62,7 +62,7 @@ impl<'a, T: ?Sized> Captures<'a> for T {}
 
 impl MockServerHandle {
     fn url(&self) -> String {
-        format!("http://{}", self.address)
+        format!("http://127.0.0.1:40101")
     }
 
     /// Will spawn a server on localhost and respond to JSON-RPC requests that successfully
@@ -234,7 +234,7 @@ mod deploy_params {
         DeployStrParams {
             secret_key: "../resources/local/secret_keys/node-1.pem",
             ttl: "10s",
-            chain_name: "casper-test-chain-name-1",
+            chain_name: "casper-net-1",
             gas_price: "1",
             ..Default::default()
         }
