@@ -158,16 +158,11 @@ where
                 block: Box::new(JsonBlock::new(*block, None)),
             }),
             Event::DeployProcessed {
-                deploy_hash,
-                deploy_header,
+                deploy,
                 block_hash,
                 execution_result,
             } => self.broadcast(SseData::DeployProcessed {
-                deploy_hash: Box::new(deploy_hash),
-                account: Box::new(deploy_header.account().clone()),
-                timestamp: deploy_header.timestamp(),
-                ttl: deploy_header.ttl(),
-                dependencies: deploy_header.dependencies().clone(),
+                deploy,
                 block_hash: Box::new(block_hash),
                 execution_result,
             }),

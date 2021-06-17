@@ -745,17 +745,16 @@ impl reactor::Reactor for Reactor {
                     block: Box::new(block),
                     execution_results: execution_results
                         .iter()
-                        .map(|(hash, (_header, results))| (*hash, results.clone()))
+                        .map(|(deploy, results)| (*deploy.id(), results.clone()))
                         .collect(),
                 });
                 effects.extend(self.dispatch_event(effect_builder, rng, reactor_event));
 
                 // send to event stream
-                for (deploy_hash, (deploy_header, execution_result)) in execution_results {
+                for (deploy, execution_result) in execution_results {
                     let reactor_event =
                         Event::EventStreamServer(event_stream_server::Event::DeployProcessed {
-                            deploy_hash,
-                            deploy_header: Box::new(deploy_header),
+                            deploy: Box::new(deploy),
                             block_hash,
                             execution_result: Box::new(execution_result),
                         });

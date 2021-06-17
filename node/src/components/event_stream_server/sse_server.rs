@@ -29,13 +29,9 @@ use warp::{
 
 use casper_types::{EraId, ExecutionEffect, ExecutionResult, ProtocolVersion, PublicKey};
 
-use crate::types::{BlockHash, DeployHash, FinalitySignature, JsonBlock, TimeDiff, Timestamp};
+use crate::types::{BlockHash, Deploy, FinalitySignature, JsonBlock, Timestamp};
 #[cfg(test)]
-use crate::{
-    crypto::AsymmetricKeyExt,
-    testing::TestRng,
-    types::{Block, Deploy},
-};
+use crate::{crypto::AsymmetricKeyExt, testing::TestRng, types::Block};
 
 /// The URL root path.
 pub const SSE_API_ROOT_PATH: &str = "events";
@@ -74,11 +70,7 @@ pub enum SseData {
     },
     /// The given deploy has been executed, committed and forms part of the given block.
     DeployProcessed {
-        deploy_hash: Box<DeployHash>,
-        account: Box<PublicKey>,
-        timestamp: Timestamp,
-        ttl: TimeDiff,
-        dependencies: Vec<DeployHash>,
+        deploy: Box<Deploy>,
         block_hash: Box<BlockHash>,
         #[data_size(skip)]
         execution_result: Box<ExecutionResult>,
@@ -121,13 +113,8 @@ impl SseData {
 
     /// Returns a random `SseData::DeployProcessed`.
     pub(super) fn random_deploy_processed(rng: &mut TestRng) -> Self {
-        let deploy = Deploy::random(rng);
         SseData::DeployProcessed {
-            deploy_hash: Box::new(*deploy.id()),
-            account: Box::new(deploy.header().account().clone()),
-            timestamp: deploy.header().timestamp(),
-            ttl: deploy.header().ttl(),
-            dependencies: deploy.header().dependencies().clone(),
+            deploy: Box::new(Deploy::random(rng)),
             block_hash: Box::new(BlockHash::random(rng)),
             execution_result: Box::new(rng.gen()),
         }

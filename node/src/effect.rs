@@ -706,7 +706,7 @@ impl<REv> EffectBuilder<REv> {
     pub(crate) async fn announce_linear_chain_block(
         self,
         block: Block,
-        execution_results: HashMap<DeployHash, (DeployHeader, ExecutionResult)>,
+        execution_results: HashMap<Deploy, ExecutionResult>,
     ) where
         REv: From<ContractRuntimeAnnouncement>,
     {

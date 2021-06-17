@@ -17,9 +17,7 @@ use crate::{
         chainspec_loader::NextUpgrade, deploy_acceptor::Error, small_network::GossipedAddress,
     },
     effect::Responder,
-    types::{
-        Block, Deploy, DeployHash, DeployHeader, FinalitySignature, FinalizedBlock, Item, Timestamp,
-    },
+    types::{Block, Deploy, FinalitySignature, FinalizedBlock, Item, Timestamp},
     utils::Source,
 };
 
@@ -232,16 +230,17 @@ pub enum ContractRuntimeAnnouncement {
 }
 
 impl ContractRuntimeAnnouncement {
-    /// Create a ContractRuntimeAnnouncement::LinearChainBlock from it's parts.
+    /// Create a ContractRuntimeAnnouncement::LinearChainBlock from its parts.
     pub fn linear_chain_block(
         block: Block,
-        execution_results: HashMap<DeployHash, (DeployHeader, ExecutionResult)>,
+        execution_results: HashMap<Deploy, ExecutionResult>,
     ) -> Self {
         Self::LinearChainBlock(Box::new(LinearChainBlock {
             block,
             execution_results,
         }))
     }
+
     /// Create a ContractRuntimeAnnouncement::BlockAlreadyExecuted from a Block.
     pub fn block_already_executed(block: Block) -> Self {
         Self::BlockAlreadyExecuted(Box::new(block))
@@ -262,7 +261,7 @@ pub struct LinearChainBlock {
     /// The block.
     pub block: Block,
     /// The results of executing the deploys in this block.
-    pub execution_results: HashMap<DeployHash, (DeployHeader, ExecutionResult)>,
+    pub execution_results: HashMap<Deploy, ExecutionResult>,
 }
 
 impl Display for ContractRuntimeAnnouncement {

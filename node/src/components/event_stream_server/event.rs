@@ -2,14 +2,13 @@ use std::fmt::{self, Display, Formatter};
 
 use casper_types::{EraId, ExecutionEffect, ExecutionResult, PublicKey};
 
-use crate::types::{Block, BlockHash, DeployHash, DeployHeader, FinalitySignature, Timestamp};
+use crate::types::{Block, BlockHash, Deploy, FinalitySignature, Timestamp};
 
 #[derive(Debug)]
 pub enum Event {
     BlockAdded(Box<Block>),
     DeployProcessed {
-        deploy_hash: DeployHash,
-        deploy_header: Box<DeployHeader>,
+        deploy: Box<Deploy>,
         block_hash: BlockHash,
         execution_result: Box<ExecutionResult>,
     },
@@ -29,8 +28,8 @@ impl Display for Event {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
         match self {
             Event::BlockAdded(block) => write!(formatter, "block added {}", block.hash()),
-            Event::DeployProcessed { deploy_hash, .. } => {
-                write!(formatter, "deploy processed {}", deploy_hash)
+            Event::DeployProcessed { deploy, .. } => {
+                write!(formatter, "deploy processed {}", deploy.id())
             }
             Event::Fault {
                 era_id,

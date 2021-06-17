@@ -47,10 +47,7 @@ use crate::{
         requests::{ConsensusRequest, ContractRuntimeRequest, LinearChainRequest, StorageRequest},
         EffectBuilder, EffectExt, Effects,
     },
-    types::{
-        Block, BlockHash, BlockHeader, Chainspec, Deploy, DeployHash, DeployHeader, FinalizedBlock,
-        NodeId,
-    },
+    types::{Block, BlockHash, BlockHeader, Chainspec, Deploy, DeployHash, FinalizedBlock, NodeId},
     utils::WithDir,
     NodeRng, StorageConfig,
 };
@@ -905,8 +902,7 @@ impl ContractRuntime {
         async move {
             for deploy in state.remaining_deploys.drain(..) {
                 let deploy_hash = *deploy.id();
-                let deploy_header = deploy.header().clone();
-                let deploy_item = DeployItem::from(deploy);
+                let deploy_item = DeployItem::from(deploy.clone());
 
                 let execute_request = ExecuteRequest::new(
                     state.state_root_hash.into(),
@@ -938,9 +934,7 @@ impl ContractRuntime {
                 .await
                 {
                     Ok((state_hash, execution_result)) => {
-                        state
-                            .execution_results
-                            .insert(deploy_hash, (deploy_header, execution_result));
+                        state.execution_results.insert(deploy, execution_result);
                         state.state_root_hash = state_hash;
                     }
                     // When commit fails we panic as we'll not be able to execute the next
@@ -1101,7 +1095,7 @@ pub struct RequestState {
     /// Deploys which have still to be executed.
     pub remaining_deploys: VecDeque<Deploy>,
     /// A collection of results of executing the deploys.
-    pub execution_results: HashMap<DeployHash, (DeployHeader, ExecutionResult)>,
+    pub execution_results: HashMap<Deploy, ExecutionResult>,
     /// Current state root hash of global storage.  Is initialized with the parent block's
     /// state hash, and is updated after each commit.
     pub state_root_hash: Digest,
