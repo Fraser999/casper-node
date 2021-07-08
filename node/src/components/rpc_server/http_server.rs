@@ -90,21 +90,41 @@ pub(super) async fn run<REv: ReactorEventT>(
     //        (i.e. where the request is JSON, but not valid JSON-RPC).  This will require an
     //        update to or move away from warp_json_rpc.
     let service = warp_json_rpc::service(
+        warp::path(RPC_API_PATH)
+            .and(warp_json_rpc::filters::json_rpc()).and(
         rpc_put_deploy
-            .or(rpc_get_block)
-            .or(rpc_get_block_transfers)
-            .or(rpc_get_state_root_hash)
-            .or(rpc_get_item)
-            .or(rpc_get_balance)
-            .or(rpc_get_deploy)
-            .or(rpc_get_peers)
-            .or(rpc_get_status)
-            .or(rpc_get_era_info)
-            .or(rpc_get_auction_info)
-            .or(rpc_get_account_info)
-            .or(rpc_get_rpcs)
-            .or(unknown_method)
-            .or(parse_failure),
+            .or(rpc_get_block)            .unify()
+
+            .or(rpc_get_block_transfers)            .unify()
+
+            .or(rpc_get_state_root_hash)            .unify()
+
+            .or(rpc_get_item)            .unify()
+
+            .or(rpc_get_balance)            .unify()
+
+            .or(rpc_get_deploy)            .unify()
+
+            .or(rpc_get_peers)            .unify()
+
+            .or(rpc_get_status)            .unify()
+
+            .or(rpc_get_era_info)            .unify()
+
+            .or(rpc_get_auction_info)            .unify()
+
+            .or(rpc_get_account_info)            .unify()
+
+            .or(rpc_get_rpcs)            .unify()
+)
+            .and_then(move |response_builder: warp_json_rpc::Builder, result: Result<Box<dyn erased_serde::Serialize + Send + 'static>, warp_json_rpc::Error>| async move {
+                match result {
+                    Ok(ok) => response_builder.success(ok),
+                    Err(error) => response_builder.error(error),
+                }.map_err(|_| warp::reject::reject())
+            })
+            // .or(unknown_method)
+            // .or(parse_failure),
     );
 
     // Start the server, passing a oneshot receiver to allow the server to be shut down gracefully.

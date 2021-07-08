@@ -78,11 +78,16 @@ impl RpcWithParams for PutDeploy {
 impl RpcWithParamsExt for PutDeploy {
     fn handle_request<REv: ReactorEventT>(
         effect_builder: EffectBuilder<REv>,
-        response_builder: Builder,
         params: Self::RequestParams,
         api_version: ProtocolVersion,
-    ) -> BoxFuture<'static, Result<Response<Body>, Error>> {
-        async move {
+    ) -> BoxFuture<
+        'static,
+        Result<
+            Result<Box<dyn erased_serde::Serialize + Send + 'static>, warp_json_rpc::Error>,
+            Error,
+        >,
+    > {
+        Box::pin(async move {
             let deploy_hash = *params.deploy.id();
 
             // Submit the new deploy to be announced.
@@ -105,7 +110,7 @@ impl RpcWithParamsExt for PutDeploy {
                         api_version,
                         deploy_hash,
                     };
-                    Ok(response_builder.success(result)?)
+                    Ok(Ok(Box::new(result)))
                 }
                 Err(error) => {
                     info!(
@@ -113,13 +118,12 @@ impl RpcWithParamsExt for PutDeploy {
                         %error,
                         "the deploy submitted by the client was invalid",
                     );
-                    Ok(response_builder.error(warp_json_rpc::Error::custom(
+                    Ok(Err(warp_json_rpc::Error::custom(
                         ErrorCode::InvalidDeploy as i64,
                         error.to_string(),
-                    ))?)
+                    )))
                 }
             }
-        }
-        .boxed()
+        })
     }
 }
